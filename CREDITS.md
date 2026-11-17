@@ -4,8 +4,8 @@ Chaque ressource du jeu, avec sa source et sa licence.
 
 | Ressource | Où | Source | Licence |
 | --- | --- | --- | --- |
-| Peintures des créatures, du sabreur, des décors et des souvenirs | `src/assets/combat/`, `src/assets/memory/`, `art/raw/` | Générées pour Kotodama (ElevenLabs, modèle gpt-image) | Images du projet |
-| Voix des personnages du chapitre 1 | `src/assets/voice/` (détail par réplique dans `index.json`) | Générées pour Kotodama avec ElevenLabs (modèle eleven_v4), voix de la bibliothèque : JUN (萬作), Konomi (おみつ), chinyaku (太一), Chieko (おたね), Kiyo (権兵衛), Akio (源造), Koichi (与平), Ryo (萬作 jeune), Akane (お露) | Voix du projet (offre payante ElevenLabs) |
+| Peintures des créatures, du sabreur, des décors, des souvenirs et des cinématiques | `src/assets/combat/`, `src/assets/memory/`, `art/raw/` | Générées pour Kotodama (ElevenLabs, modèle gpt-image) | Images du projet |
+| Voix des personnages du chapitre 1 | `src/assets/voice/` (détail par réplique dans `index.json`) | Générées pour Kotodama avec ElevenLabs (modèle eleven_v4), voix de la bibliothèque : JUN (萬作), Konomi (おみつ), chinyaku (太一), Chieko (おたね), Kiyo (権兵衛), Akio (源造), Koichi (与平), Ryo (萬作 jeune), Akane (お露), Kuro (le narrateur des cinématiques) | Voix du projet (offre payante ElevenLabs) |
 | Tuiles, décors, personnages, portraits du monde en pixel | `src/assets/world/tiles/`, `src/assets/world/actors/` | [Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack), pixel-boy | CC0 1.0 |
 | Musiques du village (« Lost Village ») et de la carte (« Road ») | `src/assets/world/audio/` | Ninja Adventure | CC0 1.0 |
 | Bruitages (rivière, menus) | `src/assets/world/audio/` | Ninja Adventure, convertis en OGG | CC0 1.0 |

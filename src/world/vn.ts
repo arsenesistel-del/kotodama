@@ -50,6 +50,7 @@ root.innerHTML = `
     <div class="body">
       <div class="name"></div>
       <div class="text"></div>
+      <div class="sub" hidden></div>
       <div class="ans" hidden>
         <div class="mic"><i></i><span></span></div>
         <div class="heard"></div>

@@ -278,6 +278,8 @@ Le village de 霧野 ne sait plus donner son avis : les villageois ne disent que
 
 Après chaque contrat, le village change : 太一 décide de réparer le moulin, おみつ apprend que sa mère est vivante, et le village répare le pont ensemble. Les trois créatures reprennent celles de la v4 ; 霧の主 est nouveau.
 
+*Mis en œuvre (session 8)* : tout le chapitre, cinématiques comprises. Prologue au col en pixel (la voix de ワケ dans la borne, deux phrases à dire). Arrivée en cinématique (おみつ et 萬作 en faits nus, tour du village). Deux contrats de révision tirés des rumeurs : 井戸の呟き (おみつ, と思う : 萬作 trouve les dango bons sans jamais le dire) et 案山子の迷い (おたね, かもしれない : 権兵衛 trouve ses pickles un peu salés). Le cœur de la brume (霧の丘) : la déduction se fait parmi quatre fins, dont んだ, parce que お露 demandait toujours どうしたの. Boss 霧の主 sur les seize structures. Épilogue complet, sceau 訳 sur la borne, route de 灯籠宿 ouverte (chapitre 2 à venir).
+
 ## Les trois PNJ du chapitre 1
 
 Trois façons de parler dès le premier village, pour que l'oreille compare : le vieil homme, la jeune femme, l'enfant. Avant guérison, leurs répliques n'utilisent aucune des quatre fins perdues ; après, elles reviennent.

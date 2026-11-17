@@ -1,6 +1,6 @@
 # 言霊 Kotodama : fichier de passation
 
-À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 7 (la progression). Le document de conception est `DESIGN.md`, à la racine du dépôt.
+À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 8 (le chapitre 1 en entier). Le document de conception est `DESIGN.md`, à la racine du dépôt.
 
 ## 0. Où est le jeu
 
@@ -22,6 +22,30 @@ Règles de conception qui en découlent :
 Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ## 2. État au 17 novembre
+
+### Session 8 : le chapitre 1, du début à la fin
+
+Branche `session-8-chapitre-1`, fusionnée dans `main` et en ligne.
+
+- **Nouvelle partie** : écran 言霊 « はじめる » (le clic autorise le son et le micro), cinématique d'ouverture sur deux peintures avec un narrateur doublé (voix Kuro), sous-titres français, carton 第一章「霧の村」. Puis le col en pixel (`src/world/maps/pass.ts`) : sentier en lacets dans la brume, la borne dont l'inscription s'arrête.
+- **Prologue** : en approchant, une voix dans la pierre (ワケ, « ？？？ ») appelle le joueur. À la borne, tutoriel de la voix : lire l'inscription telle quelle, puis la finir avec と思う (「霧の向こうにも、道はあると思う。」). La pierre se fend de vermillon, ワケ sort, se présente, décide de suivre. Avant, une brume barre la descente (`barriers` dans la carte) ; après, la sortie sud mène droit à l'entrée nord du village.
+- **Arrivée** : cinématique en pixel. Le sabreur descend jusqu'au salon de thé, おみつ et 萬作 échangent des faits nus (「熱い。」「熱いわ。」「……霧じゃ。」), ワケ comprend ce que le village a perdu, puis la caméra fait le tour : maison de 萬作, moulin, pont suspendu, colline du cimetière.
+- **Deux contrats de révision** (« 小依頼 », tirés des rumeurs, ne bloquent pas l'histoire) :
+  - 井戸の呟き (おみつ, après le contrat du col) : le puits marmonne 「おみつのお団子は、うまい……」. Témoins 太一 et おたね. Fin : と思う (萬作 n'a jamais osé dire que les dango sont bons). Chasse 呟き : と思う et そうです mêlés.
+  - 案山子の迷い (おたね, après le pont) : l'épouvantail des rizières dit 「おたねさんの漬物は、ちょっとしょっぱい……」. Témoins 権兵衛 et おみつ. Fin : かもしれない. Chasse 迷い : と思う, そうです, かもしれない.
+- **Le cœur de la brume** (霧の丘, après le pont) : 萬作 ne peut rien dire, 太一 l'a vu ouvrir et fermer la bouche devant la tombe chaque soir, おみつ rapporte que お露 lui demandait toujours どうしたの. Sur la colline, peinture plein écran, 霧の主 répète 「わしは、お前に……礼を言いたかった……」 et le joueur choisit parmi **quatre** fins (と思う, かもしれない, そうだ, んだ) : la bonne est んだ. Boss 霧の主 : les 16 structures, 260 PV. Souvenir au chevet de お露, il y a dix ans (萬作 répond 「霧じゃ。今日も、霧じゃ。」). ワケ fait remarquer que んじゃ est le んだ du joueur. Rapport : 「霧の中の声は、「お前に礼を言いたかったんだ」と言っていました。」
+- **Épilogue** (enchaîné au rapport) : 萬作 sur la tombe dit enfin sa phrase, la brume se lève dans le pixel (brume et couleurs), cinématique de l'aube sur les rizières, dispute au salon de thé (ぬるいと思う / 熱いと思うわ / 甘すぎるかもしれん), 萬作 remercie, ワケ cherche « reconnaissant » et ne le trouve pas, cinématique du col avec le sceau 訳 qui se tamponne sur la borne, carton de fin de chapitre (了). La route de 灯籠宿 s'ouvre sur la carte (« 第二章 : à venir », on ne peut pas encore y aller). Ensuite le village reste plus clair, 萬作 a une réplique d'après (「霧がないと、話が続かんのう。」), les contrats de révision restent jouables.
+- **Contrats en parallèle** : `quests.ts` gère le fil de l'histoire (c1, c2, c3, c4) et les contrats de révision (r1, r2, `side: true`) en même temps. L'encart montre le contrat de l'histoire en entier et les autres repliés sur leur étape.
+- **回想** (メニュー → 回想) : revoir le prologue, les sept souvenirs et l'épilogue déjà vus. **はじめから** (メニュー) : nouvelle partie depuis le col, deux clics ; les mots, la progression et les réglages restent.
+- **Vocabulaire des chasses accordé au monde** (`engine.js`) : plus d'アプリ, de パスポート ni de バス. 通行手形, 茶屋, 侍, 庄屋, 大工, 渡し舟, 寄り合い, 芝居, 親方… Les 19 200 phrases sont toujours vérifiées.
+- **Parties en cours** : une sauvegarde d'avant (sans drapeaux) est considérée comme passée par le col, ワケ est là, rien ne se rejoue. Pour voir le prologue : はじめから, ou 回想.
+- **Images** (10, 1 900 crédits) : `cine_yakumo`, `cine_pass`, `cine_hill`, `cine_dawn`, `mem_well`, `mem_field`, `mem_bedside` dans `src/assets/memory/` ; créatures 霧の主 (`kiri`), 呟き (`tsubu`), 迷い (`mayoi`) détourées et pixelisées. Originaux dans `art/raw/`. Décors de chasse peints par le code : la place au puits, les rizières, la colline aux tombes.
+- **Voix** : 93 répliques doublées (environ 2 950 crédits), 3 reprises de fichiers existants. Échos des nouvelles créatures avec ffmpeg comme en session 6 (霧の主 plus grave). Crédits ElevenLabs : 10 790 utilisés sur 40 000 ce mois.
+- Langue : 265 répliques japonaises, 75 réponses à dire, 46 réponses avec une structure suivie. Nouvelles fautes reconnues : な devant んだ, だ après un passé devant と思う, かもしれない, そうだ. Nouveau marqueur かしら.
+- Vérifié dans Chrome sans écran (mode test, réponses tapées) : nouvelle partie de bout en bout (écran titre, cinématique, carton, col, voix dans la pierre, réponses, libération de ワケ, descente, arrivée et tour du village), le cœur de la brume jusqu'au carton de fin (choix des quatre fins, boss, souvenir, rapport, épilogue entier), un contrat de révision avec une déduction fausse, la reprise d'une partie de la session 7, 回想. Aucune erreur JavaScript. `npm test` et `npm run build` passent. Pas vérifié à la voix réelle.
+- Pas fait : les portraits illustrés (toujours les visages du pack), l'écran du 言葉帳, le chapitre 2.
+
+Pour suivre : `KDW.flags()` (prologue, wake, ch1), `KDW.card(true)` montre le carton de fin. Revoir l'épilogue sans tout rejouer : 回想.
 
 ### Session 7 : la progression
 
@@ -209,7 +233,7 @@ Détourage : `tools/process.py` (alpha tiré de la luminosité + silhouette remp
 
 - `index.html`, `src/main.ts` : point d'entrée, création du jeu Phaser.
 - `src/scenes/BootScene.ts` : chargement des images, des sons et des polices, puis village ou carte selon la sauvegarde. `src/scenes/CombatScene.ts` : pose le combat v4. `src/scenes/VillageScene.ts` : le village en pixel. `src/scenes/WorldMapScene.ts` : la carte du monde.
-- `src/world/` : le monde. `fsrs.ts` (courbe d'oubli), `progress.ts` (suivi caché, journal du jour, bilan, sauvegarde complète), `record.ts` (écran 記録), `quests.ts` (contrats : état, qui dit quoi, sites, marqueurs, encart), `quest-lines.ts` (leurs répliques, `HEALED`, `MEMORY_ART`), `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
+- `src/world/` : le monde. `fsrs.ts` (courbe d'oubli), `progress.ts` (suivi caché, journal du jour, bilan, sauvegarde complète), `record.ts` (écran 記録), `quests.ts` (contrats : état, qui dit quoi, sites, marqueurs, encart), `quest-lines.ts` (leurs répliques, `HEALED`, `MEMORY_ART`), `story-lines.ts` (prologue, arrivée, épilogue, `CINE_ART`, `CINE_FX`), `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu : `kirino.ts`, `pass.ts` pour le col du prologue), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
 - `src/assets/world/` : tuiles, personnages, sons du pack Ninja Adventure.
 - `src/combat/engine.js` : générateur de phrases, vérification (`matches`), diagnostic (`diagnose`), statuts, les six distorsions (`STAGES`).
 - `src/combat/scene.js` : fond à l'encre du titre et du repaire, état partagé, sons synthétisés. `src/combat/pixel.js` : la chasse en pixel (décors, créature, sabreur, ワケ, effets, sceaux).
@@ -239,7 +263,7 @@ Lore retenu : voir `DESIGN.md`. Le monde tenait par la parole, les phrases laiss
 
 Plan validé par Arsène, dans cet ordre :
 1. Fait en v4 : animations du combat, interface, variété.
-2. Premier village : fait en session 2 pour la carte, le déplacement, les PNJ et la carte du monde, en session 3 pour le système de dialogue et les aides, en session 4 pour les voix et les réponses à voix haute. Contrats avec enquête et retour : faits en session 6. Reste, dans l'ordre : le cœur de la brume (enquête sur la colline, boss 霧の主, souvenir de 萬作 et お露, épilogue), prologue au col qui libère ワケ, portraits illustrés, vocabulaire des chasses accordé au monde. Détail du chapitre 1 dans `DESIGN.md`.
+2. Premier village : fait (sessions 2 à 8). Chapitre 1 complet en session 8 : prologue, arrivée, trois contrats, deux contrats de révision, cœur de la brume, boss, épilogue. Reste pour ce chapitre : portraits illustrés, écran du 言葉帳. Suite : chapitre 2, 灯籠宿 (dire pourquoi : から, ので, ため…).
 3. Forge : les fragments servent à forger des lames (une lame = une famille de structures : avis, cause, condition...) et des sceaux à équiper qui changent les règles (moins de temps pour plus de dégâts, sans furigana pour un bonus).
 4. Traques : une faute répétée fait naître sa propre créature, à rechasser.
 5. Nombres et compteurs avec le modèle kana en local.

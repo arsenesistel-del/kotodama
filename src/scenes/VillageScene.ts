@@ -144,6 +144,7 @@ export class VillageScene extends Phaser.Scene {
       quests: () => JSON.parse(JSON.stringify(world().quests)),
       flags: () => ({ ...world().flags }),
       busy: () => this.busy,
+      card: (end = false) => UI.chapterCard('第一章', '霧の村', end ? 'Fin du premier chapitre' : 'Chapitre premier · Le village de la brume', end),
       hud: () => Quests.hud(),
       mark: (id: string) => Quests.marker(id),
     };
