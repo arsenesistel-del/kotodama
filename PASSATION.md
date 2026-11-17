@@ -25,7 +25,7 @@ Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ### Session 8 : le chapitre 1, du début à la fin
 
-Branche `session-8-chapitre-1`, fusionnée dans `main` et en ligne.
+Branche `session-8-chapitre-1`, PR #7 : https://github.com/arsenesistel-del/kotodama/pull/7. À fusionner dans `main` pour la mise en ligne (la fusion n'a pas pu se faire depuis la session).
 
 - **Nouvelle partie** : écran 言霊 « はじめる » (le clic autorise le son et le micro), cinématique d'ouverture sur deux peintures avec un narrateur doublé (voix Kuro), sous-titres français, carton 第一章「霧の村」. Puis le col en pixel (`src/world/maps/pass.ts`) : sentier en lacets dans la brume, la borne dont l'inscription s'arrête.
 - **Prologue** : en approchant, une voix dans la pierre (ワケ, « ？？？ ») appelle le joueur. À la borne, tutoriel de la voix : lire l'inscription telle quelle, puis la finir avec と思う (「霧の向こうにも、道はあると思う。」). La pierre se fend de vermillon, ワケ sort, se présente, décide de suivre. Avant, une brume barre la descente (`barriers` dans la carte) ; après, la sortie sud mène droit à l'entrée nord du village.
