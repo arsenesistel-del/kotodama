@@ -217,7 +217,7 @@ Style : peinture à l'encre sumi-e, dark fantasy, adulte. Os pâle et gris sur n
 
 Outil : connecteur ElevenLabs, `creative_generate_image`, modèle `gpt-image-2.5-sunburst`, 1 variation, 190 crédits par image. Flow : `kU3JafHN2mqqQZTk0WH1`. Sortie 1280×720 quoi qu'on demande. Récupération : `creative_get_generations` donne une URL signée (2 h), téléchargeable avec curl. Ne jamais relancer un appel pour réessayer, ça refacture.
 
-Dépensé : 10 images (1 900 crédits), puis les voix du chapitre 1 (environ 1 800), puis en session 6 les voix des contrats (1 674) et 3 peintures de souvenir (570). Le compte affiche 40 000 crédits par mois, 5 937 utilisés au 17 novembre.
+Dépensé : 10 images (1 900 crédits), puis les voix du chapitre 1 (environ 1 800), puis en session 6 les voix des contrats (1 674) et 3 peintures de souvenir (570). En session 8 : 10 images (1 900) et 93 voix (environ 2 950). Le compte affiche 40 000 crédits par mois, 10 790 utilisés au 17 novembre au soir. Narrateur des cinématiques : Kuro (`UUpoAQhpz37lNIWNVLoF`).
 
 Gabarit de prompt pour une créature ou un personnage :
 
