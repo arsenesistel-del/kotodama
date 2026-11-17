@@ -42,7 +42,7 @@ export interface MapDef {
   fr: string;
   width: number;
   height: number;
-  terrain: string[][]; // « . » herbe, « d » chemin, « w » eau, « T » forêt
+  terrain: string[][]; // « . » herbe, « d » chemin, « w » eau, « T » forêt, « g » herbes hautes (rencontres, session 10)
   objects: Placed[];
   seed: number;
   music?: string;
@@ -53,6 +53,8 @@ export interface MapDef {
   exits: { side: 'north' | 'south' | 'west' | 'east'; from: number; to: number; gate: string; place?: string }[];
   // Cases bloquées tant que le fil de l'histoire n'a pas posé `flag` (la brume du col, avant que ワケ soit libéré).
   barriers?: { cells: [number, number][]; flag: string; say: string }[];
+  // Zones de rencontre : le niveau des 言蟲 selon l'endroit (un champ facile près du village, plus dur plus loin).
+  zones?: import('./field').Zone[];
   npcs: NpcDef[];
   readables: Record<string, string>; // id d'objet → id de dialogue
 }

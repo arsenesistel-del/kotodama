@@ -24,8 +24,14 @@ def sprite(name, out, h, solid=0.9):
     w=round(img.width*h/img.height); img=img.resize((w,h),Image.LANCZOS)
     img.save(O+out,'WEBP',quality=80,method=6)
     print(out,img.size,os.path.getsize(O+out))
+ONLY=set(sys.argv[1:])
+def want(o): return not ONLY or o in ONLY
 for n,o in [('m1_kake','kake'),('m2_kuzure','kuzure'),('m3_yuragi','yuragi'),('m4_tsutae','tsutae'),('m5_wake','wake'),('m6_ou','ou'),('m7_kiri','kiri'),('m8_tsubu','tsubu'),('m9_mayoi','mayoi')]:
-    sprite(n+'.png',o+'.webp',600)
+    if want(o): sprite(n+'.png',o+'.webp',600)
+# Les 言蟲 (session 10) : petites bêtes des herbes hautes, une par fin du chapitre 1.
+for n,o in [('k1_tsubuyaki','k_tsubu'),('k2_uwasa','k_uwasa'),('k3_mayoiga','k_mayoi'),('k4_wakegitsune','k_wake')]:
+    if want(o): sprite(n+'.png',o+'.webp',360)
+if ONLY: sys.exit(0)
 sprite('p_ready.png','p_ready.webp',520,0.95); sprite('p_slash.png','p_slash.webp',520,0.6)
 for n in ['bg_temple','bg_village']:
     im=Image.open(R+n+'.png').convert('RGB'); im.save(O+n+'.webp','WEBP',quality=72,method=6); print(n,os.path.getsize(O+n+'.webp'))

@@ -26,6 +26,7 @@ export interface BuiltMap {
   solid: Uint8Array;
   sprites: { o: ObjDef; x: number; y: number }[];
   readables: { id: string; cells: [number, number][] }[];
+  grass: Uint8Array; // herbes hautes (« g ») : on y fait des rencontres
 }
 
 const GRASS = gid('floor', 0, 12);
@@ -42,6 +43,7 @@ export function buildMap(def: MapDef): BuiltMap {
   const grid = () => Array.from({ length: H }, () => Array<number>(W).fill(0));
   const ground = grid(), detail = grid(), below = grid(), above = grid();
   const solid = new Uint8Array(W * H);
+  const grass = new Uint8Array(W * H);
   const occupied = new Uint8Array(W * H);
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? null : t[y][x]);
 
@@ -59,6 +61,9 @@ export function buildMap(def: MapDef): BuiltMap {
       } else if (c === 'w') {
         ground[y][x] = autotile('water', 0, 6, same);
         solid[y * W + x] = 1;
+      } else if (c === 'g') {
+        ground[y][x] = GRASS;
+        grass[y * W + x] = 1;
       } else if (c === 'T') {
         ground[y][x] = GRASS;
         solid[y * W + x] = 1;
@@ -116,6 +121,8 @@ export function buildMap(def: MapDef): BuiltMap {
     }
   }
 
-  return { def, grids: { ground, detail, below, above }, solid, sprites, readables };
+  // Un objet posé sur des herbes hautes les remplace.
+  for (let i = 0; i < W * H; i++) if (occupied[i]) grass[i] = 0;
+  return { def, grids: { ground, detail, below, above }, solid, sprites, readables, grass };
 }
 

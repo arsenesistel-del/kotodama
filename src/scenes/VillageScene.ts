@@ -10,6 +10,7 @@ import { saveWorld, world } from '../world/state';
 import * as UI from '../world/ui';
 import { hooks, maybeWeekly } from '../world/vn';
 import * as Quests from '../world/quests';
+import * as Field from '../world/field';
 
 const WALK = 72; // px par seconde
 const RUN = 118;
@@ -45,6 +46,11 @@ export class VillageScene extends Phaser.Scene {
   private barrierFog: Phaser.GameObjects.Image[] = [];
   private fogSaidAt = -1e9;
   private lastPos = { x: 0, y: 0 };
+  // Herbes hautes (session 10) : le pied de chaque touffe passe devant le sabreur ; une rencontre au hasard par case.
+  private tufts = new Map<number, Phaser.GameObjects.Image>();
+  private cell = -1;
+  private grace = 0;
+  private forceNext = false;
 
   constructor() {
     super('village');
@@ -62,6 +68,10 @@ export class VillageScene extends Phaser.Scene {
     this.blobs = [];
     this.barrierFog = [];
     drawMap(this, this.built);
+    this.tufts.clear();
+    this.cell = -1;
+    this.grace = 3;
+    this.makeGrass();
 
     // Point d'arrivée : la position sauvegardée si on recharge la page dans le village, sinon l'entrée.
     const sp = save.scene === 'village' && save.pos ? save.pos : this.def.spawns[save.gate] ?? Object.values(this.def.spawns)[0];
@@ -95,8 +105,15 @@ export class VillageScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     hooks.beforeSave = () => this.storePos();
     hooks.act = (a) => Quests.act(a);
+    hooks.bell = () => this.refreshField();
+    const onBell = () => this.ringBell();
+    window.addEventListener('kotodama:bell', onBell);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => window.removeEventListener('kotodama:bell', onBell));
     this.makeMarkers();
     this.refreshQuest();
+    // Au village, on reprend des forces (plus tard : les dango d'おみつ).
+    if (this.def.id === 'kirino') Field.heal();
+    this.refreshField();
 
     this.cameras.main.fadeIn(600, 5, 5, 5);
     const prologue = this.def.id === 'pass' && !save.flags.prologue;
@@ -122,6 +139,16 @@ export class VillageScene extends Phaser.Scene {
     } else if (prologue) {
       this.busy = true;
       void this.prologue();
+    } else if (save.flags.downed) {
+      save.flags.downed = false;
+      saveWorld();
+      this.busy = true;
+      this.time.delayedCall(700, () => UI.openChain(['down:wake'], () => (this.busy = false)));
+    } else if (this.def.zones && !save.seen['arrival:' + this.def.id]) {
+      save.seen['arrival:' + this.def.id] = true;
+      saveWorld();
+      this.busy = true;
+      this.time.delayedCall(900, () => UI.openChain(['susuki:intro'], () => (this.busy = false)));
     } else if (this.def.id === 'kirino' && !save.seen['arrival:' + this.def.id]) {
       save.seen['arrival:' + this.def.id] = true;
       saveWorld();
@@ -147,6 +174,13 @@ export class VillageScene extends Phaser.Scene {
       card: (end = false) => UI.chapterCard('第一章', '霧の村', end ? 'Fin du premier chapitre' : 'Chapitre premier · Le village de la brume', end),
       hud: () => Quests.hud(),
       mark: (id: string) => Quests.marker(id),
+      // Rencontres : `KDW.field()` l'état du 渡り, `KDW.grass()` la case et la zone, `KDW.meet()` force la prochaine
+      // rencontre (au prochain pas dans les herbes), `KDW.fight(sp, lvl, rare)` lance un combat tout de suite.
+      field: () => JSON.parse(JSON.stringify(Field.field())),
+      grass: () => ({ cell: this.cell, inGrass: this.inGrass(), zone: this.zoneHere()?.name ?? null, bell: Field.field().bell }),
+      meet: () => (this.forceNext = true),
+      fight: (sp = 'tsubuyaki', lvl = 1, rare = false) => this.encounter({ sp, lvl, rare }),
+      bell: (on?: boolean) => this.ringBell(on),
     };
   }
 
@@ -185,6 +219,7 @@ export class VillageScene extends Phaser.Scene {
         e.preventDefault();
         if (!UI.dialogOpen() && !UI.panelOpen()) this.interact();
       } else if (e.code === 'KeyM') this.sound.mute = !this.sound.mute;
+      else if (e.code === 'KeyX' && !UI.dialogOpen() && !UI.panelOpen()) this.ringBell();
     });
   }
 
@@ -307,6 +342,7 @@ export class VillageScene extends Phaser.Scene {
     if (this.cutting) return;
     this.checkExit();
     this.storyTriggers();
+    this.grassStep(moving);
     this.updateTarget();
     this.updateAmbience();
 
@@ -322,7 +358,11 @@ export class VillageScene extends Phaser.Scene {
   private solidAt(px: number, py: number): boolean {
     const { width: W, height: H } = this.def;
     const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
-    if (tx < 0 || tx >= W) return true;
+    if (tx < 0 || tx >= W) {
+      // Sur les côtés aussi, on ne passe que par une sortie (la route de l'est mène à 薄野原).
+      const side = tx < 0 ? 'west' : 'east';
+      return ty < 0 || ty >= H || !this.def.exits.some((e) => e.side === side && ty >= e.from && ty <= e.to);
+    }
     if (ty < 0 || ty >= H) {
       // Hors de la carte, on ne passe que par une sortie.
       const side = ty < 0 ? 'north' : 'south';
@@ -412,6 +452,19 @@ export class VillageScene extends Phaser.Scene {
       void this.freeWake();
       return;
     }
+    if (t.kind === 'read' && t.id === 'bell-jizo') {
+      const had = Field.field().hasBell;
+      this.busy = true;
+      UI.openChain([had ? 'susuki:bell:again' : 'susuki:bell'], () => {
+        this.busy = false;
+        if (had) return;
+        Field.giveBell();
+        if (this.cache.audio.exists('audio/accept')) this.sound.play('audio/accept', { volume: 0.45 });
+        UI.placeCard('鈴', 'La clochette du 地蔵 : elle éloigne les 言蟲', '鈴');
+        this.refreshField();
+      });
+      return;
+    }
     if (t.kind === 'read') {
       // Un objet peut être le site d'un contrat : la créature s'y montre, on finit sa phrase, puis on chasse.
       const plan = Quests.sitePlan(t.id, this.def.readables[t.id] ?? t.id);
@@ -442,7 +495,9 @@ export class VillageScene extends Phaser.Scene {
       if (accepting && q) UI.placeCard(q.title, `${q.side ? '小依頼' : '依頼'} · ${q.fr}`, '依');
       if (reporting && q) {
         UI.placeCard(q.title, 'Contrat rempli', '了');
-        UI.toast(`縁 ＋1 <small>${Quests.NAMES[t.id] ?? ''}</small>`);
+        const ups = Field.gainXp(Field.XP_REPORT);
+        UI.toast(`縁 ＋1 <small>${Quests.NAMES[t.id] ?? ''} · 経験 +${Field.XP_REPORT}${ups.length ? ` · 渡り Lv ${ups[ups.length - 1]}` : ''}</small>`);
+        this.refreshField();
       }
       this.refreshQuest();
       // Le cœur de la brume rapporté : 萬作 monte enfin sur la colline, et c'est l'épilogue.
@@ -748,13 +803,172 @@ export class VillageScene extends Phaser.Scene {
     this.endCut();
   }
 
+  // ---------- herbes hautes et rencontres (session 10) ----------
+
+  /** Dessine les touffes d'herbes hautes : le fond sous les personnages, le pied devant. Textures peintes par le code. */
+  private makeGrass(): void {
+    const g = this.built.grass;
+    if (!g.some((v) => v)) return;
+    if (!this.textures.exists('susuki0')) this.paintGrass();
+    const W = this.def.width;
+    for (let i = 0; i < g.length; i++) {
+      if (!g[i]) continue;
+      const x = (i % W) * TILE, y = Math.floor(i / W) * TILE, v = (i * 7 + (i >> 3)) % 3;
+      this.add.image(x, y - 4, 'susuki' + v).setOrigin(0).setDepth(DEPTH.below + 0.5 + y * 1e-5);
+      this.tufts.set(i, this.add.image(x, y + TILE, 'susukiF' + (v % 2)).setOrigin(0, 1).setDepth(DEPTH.actors + (y + TILE) * 1e-5));
+    }
+    // Le vent passe : de temps en temps, une vague couche les plumets.
+    this.time.addEvent({
+      delay: 2600,
+      loop: true,
+      callback: () => {
+        const t = this.time.now / 1000;
+        for (const [i, im] of this.tufts) if (Math.sin((i % W) * 0.5 - t * 1.3) > 0.85) this.tweens.add({ targets: im, x: im.x + 1, duration: 160, yoyo: true });
+      },
+    });
+  }
+
+  private paintGrass(): void {
+    // Palette du pack : vert sombre, vert, vert clair, contour d'encre ; plumets d'eulalie os pâle et paille.
+    // Chaque touffe fait 16 × 20 : elle déborde de 4 pixels sur la case du dessus, les rangées se recouvrent.
+    const DARK = '#4a7f4b', MID = '#74a334', LIGHT = '#adbc3a', INK = '#2c4a33', PLUME = ['#efe6cf', '#d8ccb0', '#c8a878'];
+    let seed = 5;
+    const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const make = (key: string, h: number, f: (g: CanvasRenderingContext2D) => void) => {
+      const c = document.createElement('canvas');
+      c.width = 16;
+      c.height = h;
+      const g = c.getContext('2d')!;
+      f(g);
+      this.textures.addCanvas(key, c);
+    };
+    const px = (g: CanvasRenderingContext2D, x: number, y: number, col: string) => {
+      g.fillStyle = col;
+      g.fillRect(((x % 16) + 16) % 16, y, 1, 1);
+    };
+    // Une tige : de la base vers le haut, qui ploie ; plumet au sommet.
+    const blade = (g: CanvasRenderingContext2D, x: number, base: number, h: number, lean: number, col: string, plume: boolean) => {
+      let tx = x;
+      for (let k = 0; k < h; k++) {
+        tx = Math.round(x + (lean * k * k) / (h * h) * 3);
+        px(g, tx, base - k, k < 2 ? DARK : col);
+      }
+      if (plume) for (let k = 0; k < 4; k++) px(g, tx + (k % 2 ? Math.sign(lean || 1) : 0), base - h - k, PLUME[(k + x) % 3]);
+    };
+    for (let v = 0; v < 3; v++)
+      make('susuki' + v, 20, (g) => {
+        // La masse de la touffe, plus sombre que la prairie, avec une ombre en bas qui dessine la rangée.
+        g.fillStyle = MID;
+        g.fillRect(0, 9, 16, 11);
+        for (let x = 0; x < 16; x++) {
+          px(g, x, 19, DARK);
+          px(g, x, 18, x % 3 ? DARK : MID);
+          px(g, x, 8 + Math.round(r() * 2), MID);
+        }
+        for (let i = 0; i < 9; i++) {
+          const x = Math.floor(r() * 16), h = 9 + Math.floor(r() * 7), l = (r() - 0.5) * 1.6;
+          blade(g, x, 17, h, l, r() < 0.5 ? LIGHT : DARK, r() < 0.45);
+        }
+        for (let i = 0; i < 5; i++) px(g, Math.floor(r() * 16), 11 + Math.floor(r() * 6), INK);
+      });
+    // Le pied des touffes, dessiné devant les personnages : on a de l'herbe jusqu'aux genoux.
+    for (const v of [0, 1])
+      make('susukiF' + v, 8, (g) => {
+        for (let x = 0; x < 16; x++) {
+          const h = 3 + Math.floor(r() * 5);
+          for (let k = 0; k < h; k++) px(g, x + (k > 3 && r() < 0.5 ? 1 : 0), 7 - k, k === 0 ? DARK : x % 2 ? MID : LIGHT);
+        }
+      });
+  }
+
+  private inGrass(): boolean {
+    const p = this.player, W = this.def.width;
+    const tx = Math.floor(p.x / TILE), ty = Math.floor((p.y - 2) / TILE);
+    return tx >= 0 && ty >= 0 && tx < W && ty < this.def.height && this.built.grass[ty * W + tx] === 1;
+  }
+
+  private zoneHere(): Field.Zone | undefined {
+    const tx = Math.floor(this.player.x / TILE), ty = Math.floor((this.player.y - 2) / TILE);
+    return this.def.zones?.find((z) => tx >= z.rect[0] && tx <= z.rect[2] && ty >= z.rect[1] && ty <= z.rect[3]);
+  }
+
+  /** Chaque case d'herbes hautes traversée peut réveiller un 言蟲, sauf quand le 鈴 tinte. */
+  private grassStep(moving: boolean): void {
+    if (!this.def.zones || this.busy || UI.dialogOpen() || UI.panelOpen()) return;
+    const W = this.def.width, p = this.player;
+    const c = Math.floor((p.y - 2) / TILE) * W + Math.floor(p.x / TILE);
+    if (c === this.cell) return;
+    this.cell = c;
+    this.refreshField();
+    if (!moving || !this.inGrass()) return;
+    const tuft = this.tufts.get(c);
+    if (tuft) {
+      this.tweens.add({ targets: tuft, x: tuft.x + (Math.random() < 0.5 ? -1 : 1), duration: 70, yoyo: true, repeat: 1 });
+      if (this.cache.audio.exists('audio/move1') && Math.random() < 0.35) this.sound.play('audio/move1', { volume: 0.08, rate: 1.6 });
+    }
+    if (Field.field().bell) return;
+    if (this.grace > 0 && !this.forceNext) {
+      this.grace--;
+      return;
+    }
+    const zone = this.zoneHere();
+    if (!zone) return;
+    if (this.forceNext || Math.random() < Field.RATE) {
+      this.forceNext = false;
+      this.encounter(Field.roll(zone));
+    }
+  }
+
+  /** Une bête surgit : éclair, la touffe s'agite, puis le combat. */
+  private encounter(b: Field.Beast): void {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.busy = true;
+    this.storePos();
+    UI.setPrompt(null);
+    UI.fieldHud(null);
+    const cam = this.cameras.main;
+    this.player.anims.stop();
+    this.player.setFrame(idleFrame(this.face));
+    const tuft = this.tufts.get(this.cell);
+    if (tuft) this.tweens.add({ targets: tuft, x: tuft.x + 2, duration: 50, yoyo: true, repeat: 5 });
+    if (this.cache.audio.exists('audio/accept')) this.sound.play('audio/accept', { volume: 0.4, rate: 0.7 });
+    cam.flash(180, 236, 230, 218);
+    this.time.delayedCall(260, () => cam.flash(180, 212, 65, 43));
+    this.time.delayedCall(520, () => cam.fadeOut(420, 5, 5, 5));
+    this.time.delayedCall(960, () => this.scene.start('combat', { beast: b }));
+  }
+
+  /** Le 鈴 tinte ou se tait (touche X, ou メニュー → 持ち物). */
+  private ringBell(on?: boolean): void {
+    const f = Field.field();
+    if (!f.hasBell) {
+      if (this.def.zones) UI.toast('鈴 <small>tu n’as pas encore de clochette</small>');
+      return;
+    }
+    const now = Field.toggleBell(on);
+    if (now && this.cache.audio.exists('audio/accept')) this.sound.play('audio/accept', { volume: 0.3, rate: 1.8 });
+    UI.toast(now ? '鈴 ちりん… <small>les 言蟲 s’écartent</small>' : '鈴 <small>rangé : les bêtes peuvent sortir des herbes</small>');
+    this.refreshField();
+  }
+
+  /** L'encart du 渡り : niveau, PV, clochette, zone et niveau des bêtes. Seulement là où il y a des herbes hautes. */
+  private refreshField(): void {
+    if (!this.def.zones) return UI.fieldHud(null);
+    const f = Field.field(), z = this.zoneHere();
+    UI.fieldHud({ lvl: f.lvl, hp: f.hp, max: Field.maxHp(f.lvl), xp: f.xp / Field.xpToNext(f.lvl), bell: f.hasBell ? f.bell : null, zone: z ? `${z.name} · Lv ${z.lv[0]}–${z.lv[1]}` : '' });
+  }
+
   // ---------- sorties, son, sauvegarde ----------
 
   private checkExit(): void {
     const y = this.player.y;
     const H = this.def.height * TILE;
+    const x = this.player.x;
     if (y < 4) this.leave('north');
     else if (y > H - 1) this.leave('south');
+    else if (x < 2) this.leave('west');
+    else if (x > this.def.width * TILE - 2) this.leave('east');
   }
 
   private leave(side: string): void {
@@ -791,7 +1005,9 @@ export class VillageScene extends Phaser.Scene {
   private cleanup(): void {
     if (hooks.beforeSave) hooks.beforeSave = undefined;
     hooks.act = undefined;
+    hooks.bell = undefined;
     UI.questHud(null);
+    UI.fieldHud(null);
     this.river?.stop();
     this.river?.destroy();
     this.river = undefined;

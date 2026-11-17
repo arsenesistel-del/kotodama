@@ -24,7 +24,12 @@ INK = ['#141b1b', '#2b2a33', '#4e484a', '#8e8a8c', '#d2c9c9', '#f2eaf1']
 RED = ['#681f14', '#9e2919', '#d4412b']
 
 # Hauteur du sprite, en pixels du jeu. Le roi est plus grand ; l'effondrement, large, un peu moins haut.
-SIZE = {'kake': 66, 'kuzure': 62, 'yuragi': 68, 'tsutae': 66, 'wake': 70, 'ou': 84, 'tsubu': 62, 'mayoi': 70, 'kiri': 86}
+SIZE = {'kake': 66, 'kuzure': 62, 'yuragi': 68, 'tsutae': 66, 'wake': 70, 'ou': 84, 'tsubu': 62, 'mayoi': 70, 'kiri': 86,
+        # Les 言蟲, plus petits que les distorsions : des bêtes des herbes hautes.
+        'k_tsubu': 34, 'k_uwasa': 44, 'k_mayoi': 40, 'k_wake': 46}
+
+# Bêtes peintes tournées vers la gauche : on les retourne pour qu'elles fassent face au sabreur.
+FLIP = {'k_uwasa', 'k_wake'}
 
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16 - 0.5
 
@@ -51,6 +56,12 @@ def pixelize(name):
     # Petits bouts isolés (éclaboussures d'un pixel) : on garde ceux qui touchent la silhouette.
     lum = rgb @ np.array([0.3, 0.59, 0.11])
     red = (rgb[..., 0] - np.maximum(rgb[..., 1], rgb[..., 2]) > 0.12) & (rgb[..., 0] > 0.28)
+    if name.startswith('k_'):
+        # Petites bêtes : les yeux vermillon ne font qu'un ou deux pixels, on les cherche dans la peinture entière.
+        big = np.asarray(im, dtype=np.float32) / 255
+        rf = ((big[..., 0] - np.maximum(big[..., 1], big[..., 2]) > 0.15) & (big[..., 0] > 0.3) & (big[..., 3] > 0.5)).astype(np.float32)
+        rs = np.asarray(Image.fromarray((rf * 255).astype(np.uint8)).resize((w, h), Image.BOX), dtype=np.float32) / 255
+        red = red | (rs > 0.05)
 
     # Lissage léger de la luminosité avant de quantifier : moins de bruit de pinceau.
     lum_img = Image.fromarray((lum * 255).astype(np.uint8)).filter(ImageFilter.MedianFilter(3))
@@ -96,6 +107,8 @@ def pixelize(name):
     flat = [v for c in pal for v in c]
     img.putpalette(flat + [0] * (768 - len(flat)))
     img.info['transparency'] = 0
+    if name in FLIP:
+        img = img.transpose(Image.FLIP_LEFT_RIGHT)
     OUT.mkdir(exist_ok=True)
     img.save(OUT / f'{name}.png', transparency=0, optimize=True)
     return img.size

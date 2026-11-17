@@ -106,6 +106,26 @@ export const DIALOGUES: Record<string, Line[]> = {
   ],
   'sign-north': [{ who: 'sign', jp: '{霧野峠|きりのとうげ}', fr: 'Le col de Kirino.' }],
   'sign-south': [{ who: 'sign', jp: 'この{先|さき}　{灯籠宿|とうろうじゅく}', fr: 'Plus loin : Tōrōjuku, le relais aux lanternes.' }],
+  // Session 10 : 薄野原, la lande aux herbes hautes, et les 言蟲.
+  'sign-east': [
+    { who: 'sign', jp: '{東|ひがし}　{薄野原|すすきのはら}', fr: 'À l’est : Susukinohara.' },
+    { who: 'wake', fr: 'Des herbes hautes à perte de vue. C’est là que traînent les 言蟲. Rien de bien méchant, mais ça grignote.' },
+  ],
+  'sign-susuki': [{ who: 'sign', jp: '{草|くさ}の{中|なか}に、{言蟲|ことむし}がいます。', fr: 'Dans les herbes, il y a des kotomushi.' }],
+  'susuki:intro': [
+    { who: 'wake', fr: 'Tu sens ? Ça grouille, dans les herbes.' },
+    { who: 'wake', fr: 'Les grosses phrases jamais finies deviennent des distorsions. Les petites, les « euh… », les avis ravalés, elles s’agglutinent en bêtes : les 言蟲.' },
+    { who: 'wake', fr: 'Pas méchantes. Elles grignotent les mots qui traînent. Si tu en croises une, finis sa phrase et elle s’apaise.' },
+    { who: 'wake', fr: 'Chaque espèce porte une fin. Regarde-la bien, tu sauras quoi dire. Et plus on s’éloigne du village, plus elles sont coriaces.' },
+    { who: 'wake', fr: 'Le 地蔵 de l’entrée a quelque chose autour du cou. Va voir.' },
+  ],
+  'susuki:bell': [
+    { who: 'sign', jp: '{旅|たび}のお{守|まも}り。ご{自由|じゆう}にどうぞ。', fr: 'Porte-bonheur du voyageur. Servez-vous.' },
+    { who: 'wake', fr: 'Un 鈴. Les 言蟲 détestent ce son : tant qu’il tinte, elles te laissent passer.' },
+    { who: 'wake', fr: 'Touche X pour le faire tinter ou le ranger (ou メニュー → 持ち物). Range-le quand tu veux t’entraîner : chaque bête, c’est une phrase de plus.' },
+  ],
+  'susuki:bell:again': [{ who: 'wake', fr: 'La corde du 地蔵 est vide. Le 鈴, c’est toi qui l’as : touche X.' }],
+  'down:wake': [{ who: 'wake', fr: 'Tu tenais à peine debout. Je t’ai ramené chez おみつ. Au village, on reprend des forces.' }],
   'sign-bridge': [
     { who: 'sign', jp: '{吊|つ}り{橋|ばし}　{一人|ひとり}ずつ{渡|わた}ること', fr: 'Pont suspendu. Traverser un par un.' },
     { who: 'wake', fr: 'Il grince. Je ne monte pas dessus, moi. Enfin, je flotte, mais quand même.' },

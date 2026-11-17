@@ -1,5 +1,6 @@
 // Les lieux de la carte du monde, 八雲の国. Coordonnées dans un repère de 1600 × 1000.
-// Un lieu « village » s'ouvre en pixel ; un « site » mène à une chasse. Le reste attend son chapitre.
+// Un lieu « village » s'ouvre en pixel. Le reste attend son chapitre. (霧野峠 et son repaire ont été retirés en
+// session 10 : les créatures v4 ne sont plus que des boss d'histoire, et l'on chasse dans les herbes hautes.)
 
 export interface Place {
   id: string;
@@ -18,7 +19,6 @@ export interface Place {
 
 export const PLACES: Place[] = [
   { id: 'kirino', name: '霧野村', reading: 'きりのむら', fr: 'Kirino, le village de la brume', x: 250, y: 790, kind: 'village', chapter: '一', open: true },
-  { id: 'touge', name: '霧野峠', reading: 'きりのとうげ', fr: 'Le col de Kirino. Les distorsions y rôdent.', x: 120, y: 610, kind: 'site', chapter: '一', open: true, from: 'kirino' },
   { id: 'tourou', name: '灯籠宿', reading: 'とうろうじゅく', fr: 'Le relais aux lanternes, sur la grand-route', x: 520, y: 700, kind: 'village', chapter: '二', open: false, opensAfter: 'ch1', soon: true },
   { id: 'shiomi', name: '潮見港', reading: 'しおみみなと', fr: 'Le port de Shiomi, pêcheurs et marchands', x: 390, y: 470, kind: 'village', chapter: '三', open: false },
   { id: 'kaji', name: '鍛冶谷', reading: 'かじだに', fr: 'La vallée des forges', x: 690, y: 520, kind: 'village', chapter: '四', open: false },

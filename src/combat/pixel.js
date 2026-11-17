@@ -52,10 +52,13 @@ function tinted(im, sx, sy, sw, sh, col) { const [c, x] = canvas(sw, sh); x.draw
 const built = new Map();
 function once(key, f) { if (!built.has(key)) built.set(key, f()); return built.get(key); }
 
-function creature(id) {
-  return once('mon:' + id, () => {
+// Variante rare d'un 言蟲 (session 10) : l'encre virée au vermillon, les yeux d'or.
+const RARE = ['#3b1410', '#681f14', '#9e2919', '#c4532f', '#e46d3a', '#f2c9a0'];
+function creature(id, rare) {
+  return once('mon:' + id + (rare ? ':r' : ''), () => {
     const im = IMG['px_' + id]; if (!im || !im.ok) return null;
     const w = im.width, h = im.height, [c, x] = canvas(w, h); x.drawImage(im, 0, 0);
+    if (rare) { const d = x.getImageData(0, 0, w, h), a = d.data; for (let i = 0; i < a.length; i += 4) { if (!a[i + 3]) continue; const r = a[i], g2 = a[i + 1], bb = a[i + 2], red = r - Math.max(g2, bb) > 40; const col = red ? rgb(C.gold) : rgb(RARE[Math.min(5, Math.floor((r * 0.3 + g2 * 0.59 + bb * 0.11) / 255 * 6))]); a[i] = col[0]; a[i + 1] = col[1]; a[i + 2] = col[2]; } x.putImageData(d, 0, 0); }
     const data = x.getImageData(0, 0, w, h).data, pix = [];
     // chaque pixel opaque, avec son seuil d'apparition et de dissolution
     for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) { const i = (y * w + xx) * 4; if (data[i + 3] > 0) pix.push({ x: xx, y, r: data[i], g: data[i + 1], b: data[i + 2], k: hash(xx * 13.7 + y * 71.3) }); }
@@ -87,7 +90,9 @@ const SETS = {
   // Session 8 : la place du village à la nuit tombée (le puits), les rizières au crépuscule, la colline du cimetière.
   tsubu: { sky: ['#1c2222', '#3b3643', '#584b46'], far: '#2e3939', near: '#242118', ground: ['#584b46', '#2e3939', '#141b1b'], fog: '#8e7c73', fogA: 0.2, trees: 'round', mark: 'well' },
   mayoi: { sky: ['#3b3643', '#8e7c73', '#bfa49e'], far: '#695953', near: '#56634d', ground: ['#5f7160', '#3e4b42', '#141b1b'], fog: '#d2c9c9', fogA: 0.22, trees: null, mark: 'paddy' },
-  kiri: { sky: ['#2b2a33', '#748e90', '#d2c9c9'], far: '#8e8a8c', near: '#4e484a', ground: ['#4e484a', '#2b2a33', '#141b1b'], fog: '#f2eaf1', fogA: 0.42, trees: null, mark: 'hill' }
+  kiri: { sky: ['#2b2a33', '#748e90', '#d2c9c9'], far: '#8e8a8c', near: '#4e484a', ground: ['#4e484a', '#2b2a33', '#141b1b'], fog: '#f2eaf1', fogA: 0.42, trees: null, mark: 'hill' },
+  // Session 10 : 薄野原, la lande aux herbes hautes, au soir. Les 言蟲 y vivent.
+  susuki: { sky: ['#3b3643', '#8e7c73', '#d8b98a'], far: '#6f7d7f', near: '#56634d', ground: ['#5f7160', '#46402e', '#141b1b'], fog: '#e6d8c0', fogA: 0.16, trees: null, mark: 'susuki' }
 };
 // un dégradé en bandes tramées, comme sur les vieilles consoles
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
@@ -146,6 +151,11 @@ function backdrop(id) {
         for (let y = -9; y <= 9; y++) for (let xx = -9; xx <= 9; xx++) { const d = Math.hypot(xx, y) / 9; if (d < 1 && bay(xx + 4, y + 4) < (1 - d) * 0.5) { x.fillStyle = C.verm2; x.fillRect(cx0 + xx, cy0 + y, 1, 1); } }
         x.fillStyle = C.grey; x.fillRect(cx0 - 3, cy0 - 5, 7, 2); x.fillRect(cx0 - 1, cy0 + 3, 3, 8); x.fillRect(cx0 - 3, cy0 + 10, 7, 2); x.fillStyle = C.ember; x.fillRect(cx0 - 2, cy0 - 3, 5, 5); x.fillStyle = C.gold; x.fillRect(cx0 - 1, cy0 - 2, 3, 3); }
     }
+    if (s.mark === 'susuki') { // herbes hautes : tiges qui ploient, plumets pâles, quelques-uns rougis par le soir
+      for (let i = 0; i < BW * 0.55; i++) { const bx = Math.floor(hash(i * 2.13 + 5) * BW), far = hash(i * 4.7) < 0.5, base = GY + (far ? 1 : 5) + Math.floor(hash(i * 1.9) * 3), hgt = Math.round((far ? 9 : 15) + hash(i * 6.1) * 10), lean = (hash(i * 8.3) - 0.3) * 0.5;
+        for (let k = 0; k < hgt; k++) { const yy = base - k, xx = Math.round(bx + lean * k * k / hgt); x.fillStyle = far ? s.near : (k < 3 ? C.bark : C.moss); x.fillRect(xx, yy, 1, 1); }
+        const tx = Math.round(bx + lean * hgt), ty = base - hgt; x.fillStyle = hash(i * 3.3) < 0.08 ? C.verm2 : far ? C.stone : C.bone; for (let k = 0; k < 4; k++) x.fillRect(tx + (k & 1), ty - k, 1 + (k === 1 ? 1 : 0), 1); }
+    }
     if (s.mark === 'moon') for (const [px, ph] of [[0.12, 0.3], [0.2, 0.18], [0.8, 0.26], [0.9, 0.2]]) { const tx = Math.round(BW * px), th = Math.round(BH * ph); x.fillStyle = C.ink; x.fillRect(tx - 2, GY - th, 5, th + 2); x.fillRect(tx - 4, GY - th + 3, 9, 1); x.fillStyle = C.verm3; x.fillRect(tx, GY - th - 3, 1, 3); }
     return c;
   });
@@ -163,7 +173,7 @@ const P = { mon: null, parts: [], nums: [], slashes: [], decals: [], stamps: [],
 for (let i = 0; i < 40; i++) P.mote.push({ x: Math.random(), y: Math.random(), z: 0.4 + Math.random() * 0.6, p: Math.random() * 6.28 });
 
 // positions dans le tampon : la créature à gauche, le sabreur à droite
-function mpos() { const m = P.mon, cr = m && creature(m.kind), w = cr ? cr.w : 60, h = cr ? cr.h : 64; return { x: Math.round(BW * 0.3), y: GY + 6, w, h, cx: Math.round(BW * 0.3), cy: GY + 6 - h / 2 }; }
+function mpos() { const m = P.mon, cr = m && creature(m.kind, m.rare), w = cr ? cr.w : 60, h = cr ? cr.h : 64; return { x: Math.round(BW * 0.3), y: GY + 6, w, h, cx: Math.round(BW * 0.3), cy: GY + 6 - h / 2 }; }
 function hpos() { return { x: Math.round(BW * 0.74), y: GY + 4 }; }
 
 function burst(x, y, n, sp, cols, grav, life) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, v = sp * (0.25 + Math.random()); P.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - sp * 0.25, g: grav === undefined ? 160 : grav, life: (life || 0.7) * (0.6 + Math.random() * 0.6), max: life || 0.7, c: cols[Math.floor(Math.random() * cols.length)], s: Math.random() < 0.2 ? 2 : 1 }); } }
@@ -173,7 +183,7 @@ function stamp(txt, bx, by, col, size, long) { P.stamps.push({ txt, bx, by, t: P
 const Pix = {
   S: null, // l'état partagé de scene.js (secousse, éclair, gel), branché au démarrage
   setMonster(st) {
-    P.mon = st ? { kind: st.art || st.id, stage: st, hp: 1, flinch: 0, dying: 0, born: P.t, stag: false, stagK: 0, rage: false, rageT: -9, glyphs: [...st.glyphs], seed: Math.random() * 100 } : null;
+    P.mon = st ? { kind: st.art || st.id, bg: st.bg || st.art || st.id, rare: !!(st.enc && st.enc.rare), stage: st, hp: 1, flinch: 0, dying: 0, born: P.t, stag: false, stagK: 0, rage: false, rageT: -9, glyphs: [...st.glyphs], seed: Math.random() * 100 } : null;
     P.atk = null; P.slashes = []; P.stamps = []; P.decals = []; P.nums = []; P.parts = []; P.down = 0; P.won = 0; P.dashT = -9; P.hitT = -9; if (this.S) this.S.tele = null;
   },
   setHp(r) { if (P.mon) P.mon.hp = clamp(r, 0, 1); },
@@ -211,9 +221,9 @@ const Pix = {
 
   draw(g, cv, dt) {
     const S = this.S; fit(cv.width, cv.height);
-    P.t += dt; const t = P.t, m = P.mon, cr = m && creature(m.kind), M = mpos(), Hh = hpos();
+    P.t += dt; const t = P.t, m = P.mon, cr = m && creature(m.kind, m.rare), M = mpos(), Hh = hpos();
     let tk = 0; if (S.tele && m) tk = clamp((performance.now() - S.tele.start) / S.tele.dur, 0, 1);
-    const id = m ? m.kind : (P.lastKind || 'kake'); if (m) P.lastKind = m.kind;
+    const id = m ? m.bg : (P.lastKind || 'kake'); if (m) P.lastKind = m.bg;
 
     // décor et brume
     const bg = backdrop(id); b.drawImage(bg, 0, 0);
@@ -316,7 +326,7 @@ const Pix = {
     if (P.down) P.down = Math.min(1, P.down + dt * 1.5);
     const e0 = t - P.dashT, hurt = clamp(1 - (t - P.hitT) / 0.5, 0, 1), lvl = P.dashLvl;
     // le pas en avant : course, coup, retour (plus loin et plus vite sur un critique ou un 奥義)
-    const target = m ? M.x + Math.round((creature(m.kind) || { w: 50 }).w * 0.3) + 6 : Hh.x;
+    const target = m ? M.x + Math.round((creature(m.kind, m.rare) || { w: 50 }).w * 0.3) + 6 : Hh.x;
     const dash = e => { if (e < 0 || e > 0.75) return [0, null]; if (e < 0.12) return [ease(e / 0.12), 'run']; if (e < 0.34) return [1, 'cut']; return [1 - ease((e - 0.34) / 0.41), 'back']; };
     const [k, ph] = dash(e0);
     let x = Math.round(lerp(Hh.x, target, k)) - 8, y = Hh.y - 16, frame = HERO.idle;
@@ -361,7 +371,7 @@ const Pix = {
   // en pleine résolution par-dessus les pixels : sceaux à l'encre et lettres de la créature
   overlay(g, cv, t, ox, oy, M) {
     const m = P.mon, S = this.S, toX = x => ox + x * Z, toY = y => oy + y * Z;
-    if (m && !m.dying && m.last && t - m.born > 1) { const cr = creature(m.kind); g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = Math.round(Z * 7) + 'px ' + DOT;
+    if (m && !m.dying && m.last && t - m.born > 1) { const cr = creature(m.kind, m.rare); g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = Math.round(Z * 7) + 'px ' + DOT;
       m.glyphs.forEach((ch, i) => { const a = t * (m.rage ? 0.5 : 0.22) + i * (6.283 / m.glyphs.length), rx = cr.w * 0.75, ry = cr.h * 0.42, gx = Math.round(M.x + Math.cos(a) * rx), gy = Math.round(m.last.y + cr.h * 0.5 + Math.sin(a) * ry * 0.6);
         g.globalAlpha = 0.25 + 0.25 * Math.sin(t * 1.6 + i * 2); g.fillStyle = 'rgb(' + (i % 3 === 0 || m.rage ? VERM : BONE) + ')'; g.fillText(ch, toX(gx), toY(gy)); }); g.globalAlpha = 1; }
     g.textBaseline = 'middle';

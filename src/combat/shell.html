@@ -1,46 +1,6 @@
-<!-- Interface du combat v4, injectée par la scène Phaser « combat ». -->
+<!-- Interface du combat, injectée par la scène Phaser « combat ». Le repaire de la v4 a été retiré en session 10. -->
 <canvas id="cv"></canvas>
 <div id="ui">
-  <section id="title">
-    <div class="tbox">
-      <h1>言霊<span class="seal">歪祓</span></h1>
-      <p class="rom">KOTODAMA</p>
-      <p class="tag">Ce qui est mal dit se déforme.<br>Dis-le juste, et vite.</p>
-      <button id="enter" class="primary">Entrer</button>
-      <p class="small">Chrome va demander le micro. Avec un casque, le son du jeu ne gêne pas l'écoute.</p>
-    </div>
-  </section>
-
-  <section id="hub" hidden>
-    <div class="hubwrap">
-      <header class="hubhead">
-        <div class="brand"><h2>言霊</h2><span class="seal">歪祓</span></div>
-        <nav id="tabs">
-          <button class="tab on" data-tab="quests"><b>依頼</b><span>Contrats</span></button>
-          <button class="tab" data-tab="book"><b>図鑑</b><span>Bestiaire</span></button>
-          <button class="tab" data-tab="opts"><b>設定</b><span>Réglages</span></button>
-        </nav>
-        <div class="hubstat"><span id="totals"></span><span id="frags"></span><button id="tomap" class="quiet" title="Retour à la carte du monde">地図へ</button></div>
-      </header>
-      <p id="hubmic" class="warn"></p>
-      <div id="tab-quests" class="tabp">
-        <p class="lead"><b>意見の刀</b> Le sabre de l'avis. Six distorsions à dissiper, dans l'ordre.</p>
-        <div id="stages" class="stages"></div>
-      </div>
-      <div id="tab-book" class="tabp" hidden>
-        <p class="lead"><b>図鑑</b> Ce que tu sais sortir, structure par structure.</p>
-        <div class="scroll" id="bestiary"></div>
-        <div class="legend"><span><i></i>jamais tenté</span><span><i class="casse"></i>cassé</span><span><i class="lent"></i>juste mais lent</span><span><i class="reflexe"></i>réflexe : juste en moins de 3 s</span></div>
-        <div class="btns"><button id="copy" class="quiet">Copier le compte rendu</button></div>
-        <textarea id="rep" hidden readonly></textarea>
-      </div>
-      <div id="tab-opts" class="tabp" hidden>
-        <p class="lead"><b>設定</b> Réglages.</p>
-        <div class="opts"><button id="read"></button><button id="sound"></button><button id="showhow">Revoir les règles</button></div>
-      </div>
-    </div>
-  </section>
-
   <section id="hunt" hidden>
     <div class="bars"><i></i><i></i></div>
     <div class="top"><button id="quit" class="quiet">Quitter</button></div>
@@ -66,6 +26,16 @@
         <div class="micline"><span id="mic" class="off"></span></div>
       </div>
     </div>
+    <!-- Fin d'une rencontre dans les herbes hautes : expérience, butin, ce qui vient d'être acquis. -->
+    <div id="eres" class="eres" hidden>
+      <b id="etitle"></b>
+      <p id="esub"></p>
+      <div class="exp"><span id="elv"></span><div class="xpbar"><i id="exp"></i></div><span id="expn"></span></div>
+      <p id="eups"></p>
+      <p id="eloot"></p>
+      <p id="eacq" class="acq"></p>
+      <button id="eok" class="primary">続ける · continuer</button>
+    </div>
   </section>
 
   <section id="result" hidden>
@@ -77,23 +47,10 @@
       <p id="runlock" class="unlock"></p>
       <h3>Phrases à reprendre</h3>
       <ul id="rfails"></ul>
-      <footer><span class="btns"><button id="again" class="primary">Rechasser</button><button id="back">Retour au repaire</button></span></footer>
+      <footer><span class="btns"><button id="again" class="primary">Rechasser</button><button id="back">村へ戻る · retour au village</button></span></footer>
     </div>
   </section>
 
-  <div id="howto" class="modal" hidden>
-    <div class="panel narrow">
-      <header><h2>掟</h2><p>Les règles de la chasse</p></header>
-      <ol class="rules">
-        <li><b class="k">斬</b><div><b>Trancher.</b> La distorsion montre deux mots et une fin, par exemple <span class="jp">この町 ／ 静か</span> et <span class="jp">〜と思う</span>. Tu dis la phrase entière : <span class="jp">この町は静かだと思う</span>. Une étiquette <span class="jp">否定</span> ou <span class="jp">過去</span> demande le négatif ou le passé.</div></li>
-        <li><b class="k v">祓</b><div><b>Purifier.</b> Parfois elle te lance une phrase déformée. Redis-la juste.</div></li>
-        <li><b class="k g">崩</b><div><b>Briser sa garde.</b> Chaque phrase juste remplit la jauge 崩, les coups critiques (départ en moins de 3,5 s) bien plus vite. Jauge pleine : la distorsion vacille et ta prochaine phrase est une <span class="jp">奥義</span>, à dégâts triplés.</div></li>
-        <li><b class="k v">怒</b><div><b>Sa colère.</b> À mi-vie elle s'enrage : moins de temps, plus de phrases déformées.</div></li>
-        <li><b class="k">形</b><div><b>Tenir.</b> Si l'anneau se vide ou si la phrase est fausse, tu encaisses. Redis alors la phrase juste pour reprendre l'initiative. Un kanji que tu ne sais pas lire : <b>F</b>, <b>Espace</b> ou un clic sur la consigne.</div></li>
-      </ol>
-      <footer><span class="btns"><button id="okhow" class="primary">Compris</button></span></footer>
-    </div>
-  </div>
   <div id="wipe"></div>
 </div>
 <input id="dbg" hidden placeholder="mode texte : tape la phrase, puis Entrée" autocomplete="off">

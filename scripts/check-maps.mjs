@@ -40,9 +40,9 @@ for (const [id, def] of Object.entries(M.MAPS)) {
 
   for (const [name, s] of spawns) if (!reach(Math.floor(s.x), Math.floor(s.y - 0.2))) fail(`${id} : l'arrivée « ${name} » est coupée du reste`);
   for (const e of def.exits) {
-    const row = e.side === 'north' ? 0 : H - 1;
+    const row = e.side === 'north' ? 0 : H - 1, col = e.side === 'west' ? 0 : W - 1, side = e.side === 'west' || e.side === 'east';
     let ok = false;
-    for (let x = e.from; x <= e.to; x++) if (reach(x, row)) ok = true;
+    for (let i = e.from; i <= e.to; i++) if (side ? reach(col, i) : reach(i, row)) ok = true;
     if (!ok) fail(`${id} : la sortie ${e.side} est inaccessible`);
   }
   for (const n of def.npcs) {
@@ -56,9 +56,22 @@ for (const [id, def] of Object.entries(M.MAPS)) {
   }
   for (const k of Object.keys(def.readables)) if (!built.readables.some((r) => r.id === k)) fail(`${id} : ${k} n'est posé nulle part`);
 
+  // Herbes hautes (session 10) : chaque case est dans une zone de rencontre, au niveau du chapitre 1 (1 à 10).
+  let tall = 0;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (!built.grass[y * W + x]) continue;
+      tall++;
+      if (!reach(x, y)) fail(`${id} : herbes hautes inaccessibles en ${x},${y}`);
+      if (!(def.zones ?? []).some((z) => x >= z.rect[0] && x <= z.rect[2] && y >= z.rect[1] && y <= z.rect[3])) fail(`${id} : herbes hautes hors zone en ${x},${y}`);
+    }
+  for (const z of def.zones ?? []) if (z.lv[0] < 1 || z.lv[1] > 10 || z.lv[0] > z.lv[1]) fail(`${id} : zone « ${z.name} » hors de la tranche 1 à 10`);
+  for (const e of def.exits) if (e.place && !M.MAPS[e.place]) fail(`${id} : la sortie ${e.side} mène à ${e.place}, qui n'existe pas`);
+  for (const e of def.exits) if (e.place && !M.MAPS[e.place].spawns[e.gate]) fail(`${id} : la sortie ${e.side} arrive par « ${e.gate} », absent de ${e.place}`);
+
   let open = 0;
   for (let i = 0; i < W * H; i++) open += seen[i];
-  console.log(`${def.name} (${id}) : ${W}×${H}, ${open} cases accessibles, ${def.npcs.length} personnages, ${built.readables.length} choses à lire.`);
+  console.log(`${def.name} (${id}) : ${W}×${H}, ${open} cases accessibles, ${def.npcs.length} personnages, ${built.readables.length} choses à lire${tall ? `, ${tall} cases d'herbes hautes` : ''}.`);
 }
 
 // Toutes les répliques se terminent et ont une traduction.

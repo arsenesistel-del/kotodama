@@ -19,6 +19,8 @@ import { placeById } from './places';
 import * as P from './prefs';
 import * as Progress from './progress';
 import * as Record from './record';
+import * as FieldUi from './fieldui';
+import * as Field from './field';
 import { newGame, replaceWorld, saveWorld, world, type WorldSave } from './state';
 import { entryOf, parse, plain, tokenize, type Token } from './text';
 
@@ -28,6 +30,7 @@ export const hooks: {
   beforeSave?: () => void; // la scène range sa position avant une sauvegarde
   settings?: () => void; // les réglages ont changé (volume)
   act?: (a: string) => void; // une phrase dite porte une action (déduction d'un contrat)
+  bell?: () => void; // la clochette a changé depuis le 持ち物 : la scène met son encart à jour
 } = {};
 
 // Peintures des souvenirs (session 6), affichées derrière la boîte pendant un souvenir.
@@ -82,6 +85,8 @@ root.innerHTML = `
     <div class="menu">
       <button data-a="save">セーブ<small>sauvegarder</small></button>
       <button data-a="load">ロード<small>charger</small></button>
+      <button data-a="bag">持ち物<small>sac, niveau, clochette</small></button>
+      <button data-a="zukan">図鑑<small>tout ce que tu as croisé</small></button>
       <button data-a="log">バックログ<small>historique</small></button>
       <button data-a="record">記録<small>bilan de la semaine</small></button>
       <button data-a="scenes">回想<small>revoir les scènes</small></button>
@@ -108,6 +113,15 @@ root.innerHTML = `
     <header><h2>回想</h2><button class="x" data-a="close">✕</button></header>
     <div class="scenes"></div>
     <footer>Les cinématiques et les souvenirs déjà vus. Rien n’y est compté.</footer>
+  </section>
+  <section class="vp p-bag" hidden>
+    <header><h2>持ち物</h2><button class="x" data-a="close">✕</button></header>
+    <div class="bag"></div>
+  </section>
+  <section class="vp p-zukan" hidden>
+    <header><h2>図鑑</h2><button class="x" data-a="close">✕</button></header>
+    <div class="zukan"></div>
+    <footer>Tout ce que tu as croisé. Les 言蟲 vivent dans les herbes hautes, hors du village ; les distorsions sont celles de l’histoire.</footer>
   </section>
   <section class="vp p-config" hidden>
     <header><h2>設定</h2><button class="x" data-a="close">✕</button></header>
@@ -722,7 +736,7 @@ function refreshText(): void {
 
 // ---------- panneaux ----------
 
-type Panel = 'menu' | 'log' | 'slots' | 'config' | 'record' | 'scenes';
+type Panel = 'menu' | 'log' | 'slots' | 'config' | 'record' | 'scenes' | 'bag' | 'zukan';
 let panel: Panel | null = null;
 export const panelOpen = () => panel !== null;
 
@@ -875,6 +889,8 @@ function renderConfig(): void {
     row('ふりがな', 'auto : seulement ce que tu ne sais pas lire', 'furigana', [['auto', '自動'], ['all', '全部'], ['none', 'なし']], S.furigana),
     row('読める漢字', 'kanji réputés connus au départ', 'level', [['N3', 'N3まで'], ['N2', 'N2まで']], S.level),
     row('ワケの訳', 'la traduction de ワケ', 'translate', [['tap', 'タップで'], ['always', 'いつも']], S.translate),
+    row('戦いの読み方', 'lectures pendant les combats (F ou Espace)', 'c:read', [['ask', '聞いたら'], ['always', 'いつも'], ['never', 'なし']], FieldUi.combatPref('read') as string),
+    row('戦いの効果音', 'effets sonores des combats', 'c:sound', [['1', 'あり'], ['0', 'なし']], FieldUi.combatPref('sound') ? '1' : '0'),
     `<div class="row"><label>音量<small>volume général</small></label><input type="range" min="0" max="100" value="${Math.round(S.volume * 100)}" data-k="volume"></div>`,
     `<div class="row"><label>ボイス<small>volume des voix</small></label><input type="range" min="0" max="100" value="${Math.round(S.voice * 100)}" data-k="voice"></div>`,
     `<div class="row"><label>記録<small>toute la partie dans un fichier : monde, mots, progression, combat, réglages</small></label><div class="seg"><button data-k="backup" data-v="1">書き出す</button><button data-k="restore" data-v="1">読み込む</button></div></div>`,
@@ -885,6 +901,10 @@ let armedReset = false;
 function setConfig(k: string, v: string): void {
   const S = P.settings as unknown as Record<string, unknown>;
   if (k === 'backup') return downloadBackup();
+  if (k === 'c:read' || k === 'c:sound') {
+    FieldUi.setCombatPref(k === 'c:read' ? 'read' : 'sound', k === 'c:read' ? v : v === '1');
+    return renderConfig();
+  }
   if (k === 'restore') return $<HTMLInputElement>('.restore').click();
   if (k === 'reset') {
     if (!armedReset) armedReset = true;
@@ -1013,6 +1033,18 @@ function act(a: string): void {
   else if (a === 'skip') setSkip(!skip);
   else if (a === 'log') openLog();
   else if (a === 'record') openRecord(0);
+  else if (a === 'bag') {
+    openPanel('bag');
+    $('.bag').innerHTML = FieldUi.renderBag();
+  } else if (a === 'zukan') {
+    openPanel('zukan');
+    $('.zukan').innerHTML = FieldUi.renderZukan();
+    $('.zukan').scrollTop = 0;
+  } else if (a === 'bell') {
+    Field.toggleBell();
+    $('.bag').innerHTML = FieldUi.renderBag();
+    hooks.bell?.();
+  }
   else if (a === 'scenes') openScenes();
   else if (a === 'newgame') askNewGame();
   else if (a === 'recprev') openRecord(recBack + 1);
