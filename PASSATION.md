@@ -1,6 +1,6 @@
 # 言霊 Kotodama : fichier de passation
 
-À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 2 (le monde en pixel). Le document de conception est `DESIGN.md`, à la racine du dépôt.
+À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 3 (les dialogues). Le document de conception est `DESIGN.md`, à la racine du dépôt.
 
 ## 0. Où est le jeu
 
@@ -22,6 +22,27 @@ Règles de conception qui en découlent :
 Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ## 2. État au 17 novembre
+
+### Session 3 : les dialogues
+
+Branche `session-3-dialogues`. Système de dialogue façon visual novel, dans `src/world/vn.ts` et `vn.css` (l'ancienne boîte de `ui.ts` est remplacée).
+
+- Boîte de VN : portrait, nom avec furigana, texte qui défile, ▼ d'attente. Menu rapide sous le texte, en japonais : セーブ, ロード, オート, スキップ, バックログ, 設定. Bouton メニュー en haut à droite (village et carte), ou Échap.
+- バックログ : les 120 dernières répliques, gardées dans la sauvegarde du monde. Mots touchables, bouton 訳 pour afficher les traductions. B ou molette vers le haut sur la boîte.
+- オート (A) : attente selon la longueur de la réplique, plus longue si ワケ parle. スキップ : 既読スキップ, ne passe que les répliques déjà lues (Ctrl tenu ou bouton) ; sur une réplique jamais lue, refus avec « 未読です ».
+- セーブ・ロード : trois emplacements (`kotodama.slots.v1`), avec lieu, date et dernière réplique. Confirmation par un second clic. Charger relance la bonne scène (village ou carte). La sauvegarde automatique continue à côté. Les emplacements ne gardent que le monde, pas le combat.
+- 設定 (`kotodama.settings.v1`) : vitesse du texte, vitesse de l'オート, ふりがな (自動, 全部, なし), kanji réputés connus (N3 ou N2), traduction de ワケ (à la demande ou toujours), volume, remise à zéro des mots.
+- Furigana seulement sur ce qu'on ne sait pas lire : un mot n'en a que si l'un de ses kanji dépasse le niveau choisi (N3 par défaut, liste dans `src/world/kanji.ts`), ou si c'est un nom propre. Toucher un mot pour son sens le marque comme illisible : son furigana s'affiche désormais partout. La fiche a un bouton ふりがな pour le masquer ou le remettre. F montre tout le furigana de la réplique en cours, sans rien marquer. Mémoire des mots : `kotodama.words.v1`.
+- Sens en français au toucher : chaque mot de chaque réplique est cliquable (aussi dans la バックログ). Fiche : mot, lecture, forme du dictionnaire (辞書形), nature, sens, marqueur de 役割語 avec son équivalent standard (じゃ → だ), remarque de grammaire. Les sens viennent de `src/world/lexicon.ts`, écrit à la main (JMdict n'était pas téléchargeable depuis la session ; à brancher plus tard si besoin).
+- ワケ souffle : T ou 訳 ouvre une bulle de ワケ au-dessus de la boîte avec la traduction (palier 1). La première fois qu'un marqueur de 役割語 apparaît (じゃ, わし, おる, のう, わ, もん), ワケ le signale dans la bulle et il entre dans le 言葉帳 (`notebook` de la sauvegarde, pas encore d'écran).
+- Découpage des répliques en mots par correspondance la plus longue avec le lexique, sans couper un groupe à furigana (`src/world/text.ts`). « / » dans une réplique force une coupure.
+- Trois PNJ avec leurs premières répliques du DESIGN : 萬作 (avant, présentation), おみつ (avant, indice), 太一 (avant), chacun suivi d'une remarque de ワケ. Quand on leur reparle, une réplique courte (`id:again`) : 「お前さんか。……霧じゃのう。」, 「あら、お客さん。お団子、甘いわよ。……甘いわ。」, 「水車小屋、こわい。……こわくないもん！」.
+- `npm test` vérifie aussi les répliques (`scripts/check-dialogue.mjs`) : chaque kanji a sa lecture, chaque mot est dans le lexique, chaque marqueur existe, aucune fin perdue avant guérison (と思う, かもしれない, そうだ, んだ). `node scripts/check-dialogue.mjs --show` affiche le découpage.
+- Vérifié dans Chrome sans écran : arrivée, dialogues des trois PNJ et des figurants, bulle de ワケ et marqueurs, fiche d'un mot et furigana qui apparaît, masquage du furigana, F, オート jusqu'au bout, スキップ sur du lu et refus sur du non lu, バックログ avec traductions, セーブ puis ロード (retour à la position), 設定, menu sur la carte qui bloque les touches du jeu. Aucune erreur JavaScript.
+
+Pas encore fait dans les dialogues : répondre à voix haute, voix et réécoute, vitesse lente, écran du 言葉帳, acquisition d'un mot en le prononçant juste (prévu avec le micro), portraits illustrés.
+
+Écrire une réplique : la mettre dans `dialogue.ts` avec la lecture de chaque kanji (`{霧|きり}`), lancer `npm test`, ajouter au lexique les mots qu'il signale.
 
 ### Session 2 : le monde en pixel
 
@@ -103,14 +124,14 @@ Détourage : `tools/process.py` (alpha tiré de la luminosité + silhouette remp
 
 - `index.html`, `src/main.ts` : point d'entrée, création du jeu Phaser.
 - `src/scenes/BootScene.ts` : chargement des images, des sons et des polices, puis village ou carte selon la sauvegarde. `src/scenes/CombatScene.ts` : pose le combat v4. `src/scenes/VillageScene.ts` : le village en pixel. `src/scenes/WorldMapScene.ts` : la carte du monde.
-- `src/world/` : le monde. `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (dialogue, invites, titres), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
+- `src/world/` : le monde. `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
 - `src/assets/world/` : tuiles, personnages, sons du pack Ninja Adventure.
 - `src/combat/engine.js` : générateur de phrases, vérification (`matches`), diagnostic (`diagnose`), statuts, les six distorsions (`STAGES`).
 - `src/combat/scene.js` : rendu canvas (décor, créature, sabreur, effets) et sons synthétisés.
 - `src/combat/game.js` : micro (`Mic`), déroulé d'une chasse, sauvegarde, repaire, résultat.
 - `src/combat/shell.html`, `src/combat/style.css` : interface du combat. `src/combat/assets.ts` : URLs des images. `src/combat/mount.ts` : montage dans la page.
 - `src/assets/combat/` : images du combat (WebP). `art/raw/` : originaux.
-- `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes. Les deux tournent avec `npm test`.
+- `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes ; `scripts/check-dialogue.mjs` : vérification des répliques. Les trois tournent avec `npm test`.
 - `tools/process.py` : détourage. `tools/test_micro.html` : page de test du micro.
 - `.github/workflows/deploy.yml` : tests, construction et mise en ligne.
 - `DESIGN.md`, `PASSATION.md`, `CREDITS.md`.
@@ -121,6 +142,8 @@ Mode test : ajouter `#debug` à l'adresse. Un champ texte remplace le micro et `
 
 Dans le village, `window.KDW` : `KDW.go(x, y)` téléporte (en tuiles), `KDW.state()` donne position, direction, cible et dialogue, `KDW.talk()` parle. Sur la carte, `window.KDM.go('kirino')` voyage, `KDM.sel()` donne le lieu choisi. Pour repartir de zéro dans le monde : `localStorage.removeItem('kotodama.world.v1')`.
 
+Dialogues, `window.KDV` : `KDV.state()` (réplique, défilement, オート, スキップ, panneau, bulle), `KDV.open('mansaku')` ouvre un dialogue, `KDV.text()` donne le HTML de la réplique. Mots et réglages : `kotodama.words.v1`, `kotodama.settings.v1`, `kotodama.slots.v1`.
+
 Ajouter un lieu en pixel : une carte dans `src/world/maps/` (terrain en lettres, objets du catalogue, PNJ, arrivées, sorties), l'inscrire dans `maps/index.ts`, ouvrir le lieu dans `places.ts`, écrire ses répliques dans `dialogue.ts`. `npm test` dit si quelque chose est inaccessible.
 
 ## 6. Suite prévue
@@ -129,7 +152,7 @@ Lore retenu : voir `DESIGN.md`. Le monde tenait par la parole, les phrases laiss
 
 Plan validé par Arsène, dans cet ordre :
 1. Fait en v4 : animations du combat, interface, variété.
-2. Premier village : fait en session 2 pour la carte, le déplacement, les PNJ et la carte du monde. Reste, dans l'ordre : répondre aux PNJ à voix haute (échelle « Lire » du DESIGN, avec le micro déjà en place), voix japonaises ElevenLabs des trois PNJ, contrats donnés par les PNJ avec enquête et retour, prologue au col qui libère ワケ, portraits illustrés. Détail du chapitre 1 dans `DESIGN.md`.
+2. Premier village : fait en session 2 pour la carte, le déplacement, les PNJ et la carte du monde, en session 3 pour le système de dialogue et les aides. Reste, dans l'ordre : répondre aux PNJ à voix haute (échelle « Lire » du DESIGN, avec le micro déjà en place), voix japonaises ElevenLabs des trois PNJ, contrats donnés par les PNJ avec enquête et retour, prologue au col qui libère ワケ, portraits illustrés. Détail du chapitre 1 dans `DESIGN.md`.
 3. Forge : les fragments servent à forger des lames (une lame = une famille de structures : avis, cause, condition...) et des sceaux à équiper qui changent les règles (moins de temps pour plus de dégâts, sans furigana pour un bonus).
 4. Traques : une faute répétée fait naître sa propre créature, à rechasser.
 5. Nombres et compteurs avec le modèle kana en local.
