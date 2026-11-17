@@ -25,6 +25,8 @@ Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ### Session 2 : le monde en pixel
 
+Livrée dans la PR #1 (branche `session-2-village`) : https://github.com/arsenesistel-del/kotodama/pull/1. En ligne dès qu'elle est fusionnée dans `main`.
+
 - Pack [Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) complet récupéré sur itch.io (CC0, 89 Mo). Seul ce qui sert est dans le dépôt, sous `src/assets/world/` (tuiles, 7 personnages et leurs portraits, roue du moulin, 2 musiques, 4 bruitages ; 2,5 Mo). Le pack entier n'est pas versionné : le retélécharger s'il faut d'autres pièces.
 - Premier village, 霧野村, 48 × 40 tuiles de 16 px, décrit dans `src/world/maps/kirino.ts` : col au nord (地蔵, poteau), salon de thé d'おみつ, maison de 萬作, place et puits, moulin à l'arrêt au bord de la rivière, pont de bois, pont suspendu, rizières en terrasse, colline du cimetière (torii, tombes, grand cerisier, tombe d'お露), grand-route au sud. Forêt de montagne tout autour.
 - Le terrain s'écrit en lettres (herbe, chemin, eau, forêt) ; les bords des chemins et de l'eau sont posés automatiquement (`autotile` dans `src/world/tileset.ts`). Les objets ont un masque de collision et un nombre de lignes dessinées devant les personnages (cimes, toits).
