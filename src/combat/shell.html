@@ -43,25 +43,28 @@
 
   <section id="hunt" hidden>
     <div class="bars"><i></i><i></i></div>
-    <div class="top">
-      <button id="quit" class="quiet">Quitter</button>
-      <div class="me"><span>形</span><div id="php"></div></div>
-      <div id="combo"></div>
-      <div class="foe">
+    <div class="top"><button id="quit" class="quiet">Quitter</button></div>
+    <div id="banner" class="banner"></div>
+    <!-- Fenêtres du bas, façon vieux Final Fantasy : la créature, la consigne, le sabreur. -->
+    <div class="cmd">
+      <div class="win foe">
         <span id="mname"></span>
         <div class="hpbar"><div id="mlag"></div><div id="mhp"></div></div>
         <div class="stbar"><span>崩</span><div><i id="stance"></i></div></div>
       </div>
-    </div>
-    <div id="banner" class="banner"></div>
-    <div class="bottom">
-      <div id="cue" class="cue"></div>
-      <div class="tb"><div id="tbar"></div></div>
-      <div id="readhint" class="readhint" hidden>F ou Espace : afficher les lectures</div>
-      <div id="heard"></div>
-      <div id="fb" class="fb"></div>
-      <div id="acts" hidden><button id="void" class="quiet">Le micro a mal entendu</button><button id="skip" class="quiet">Passer</button></div>
-      <div class="micline"><span id="mic" class="off"></span></div>
+      <div class="win mid">
+        <div id="cue" class="cue"></div>
+        <div id="fb" class="fb"></div>
+        <div id="acts" hidden><button id="void" class="quiet">Le micro a mal entendu</button><button id="skip" class="quiet">Passer</button></div>
+        <div class="tb"><div id="tbar"></div></div>
+        <div class="under"><div id="heard"></div><div id="readhint" class="readhint" hidden>F ou Espace : lectures</div></div>
+      </div>
+      <div class="win me">
+        <div class="who"><b>渡り</b><span>形</span></div>
+        <div id="php"></div>
+        <div id="combo"></div>
+        <div class="micline"><span id="mic" class="off"></span></div>
+      </div>
     </div>
   </section>
 
