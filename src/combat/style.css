@@ -196,3 +196,23 @@ ul#rfails{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;
 .cue ruby.aid rt{visibility:visible}.cue ruby.aid.fade rt{opacity:.42}
 .acq{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0;font-size:14px}.acq:empty{display:none}
 .acq b{font-family:var(--disp);font-weight:400;color:#e0806b;margin-right:4px}.acq span{border:1px solid rgba(212,65,43,.5);padding:2px 9px;color:#f1d6cd}
+/* Rencontres dans les herbes hautes (session 10) : phrase entière à lire, phrase seulement entendue, fin du combat. */
+.full{font-size:clamp(26px,4.6vh,46px);line-height:1.25;padding-top:.35em;color:#f2eaf1}
+.full rt{color:rgba(241,174,65,.85)}
+.cue .ear{font-size:clamp(28px,5vh,48px);letter-spacing:.3em;color:#f1ae41;padding-top:.2em}
+.cue.listen .kind{background:#f1ae41;border-color:#f1ae41;color:#0a0909}
+.banner.small b{font-size:clamp(46px,9vh,90px)}
+.cmd.gone{opacity:0;pointer-events:none}
+.eres{position:absolute;left:50%;bottom:clamp(30px,8vh,90px);transform:translateX(-50%);width:min(560px,calc(100vw - 30px));background:rgba(8,8,9,.92);border:1px solid var(--line);border-left:3px solid var(--verm);padding:18px 22px 16px;display:flex;flex-direction:column;gap:8px;pointer-events:auto;animation:pop .25s steps(3);box-shadow:0 0 0 4px rgba(8,8,9,.6),0 20px 60px rgba(0,0,0,.6)}
+.eres #etitle{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:.08em}
+.eres #etitle small{font-size:15px;color:var(--verm);margin-left:12px;letter-spacing:.2em}
+.eres p{margin:0;font-size:15px;color:#d8d2c7}.eres p:empty{display:none}
+.eres #esub{color:var(--mute);font-size:13px}
+.eres .exp{display:flex;align-items:center;gap:10px;font-size:14px}.eres .exp:has(#elv:empty){display:none}
+.eres .xpbar{flex:1;height:6px;background:rgba(236,230,218,.12)}.eres .xpbar i{display:block;height:100%;background:#f1ae41;transform-origin:left;transition:transform .8s ease-out}
+.eres #expn{color:#f1ae41}
+.eres b{font-family:var(--disp);font-weight:400;color:#e0806b;margin-right:8px}
+.eres #eloot small{display:block;font-size:12px;color:var(--mute);margin-top:2px}
+.eres #eups b{color:#f1ae41}
+.eres button{align-self:flex-end;font-size:16px;padding:8px 22px;margin-top:4px}
+.eres.lost{border-left-color:#4e484a}

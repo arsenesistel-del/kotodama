@@ -420,6 +420,14 @@ export const LEX: Record<string, Entry> = {
   なら: { pos: 'particule', fr: 'si ; 今なら : maintenant, peut-être' },
   んだ: { pos: 'fin de phrase', fr: 'c’est que… (on explique) ; forme simple de んです', note: 'après un nom ou un adjectif な : なんだ' },
   んじゃ: { pos: 'fin de phrase', fr: 'c’est que… (= んだ, vieillard)', marker: 'じゃ', note: 'le んだ des vieux' },
+  // Session 10 : 薄野原 et ses bêtes.
+  東: { pos: 'nom', r: 'ひがし', fr: 'l’est' },
+  薄野原: { pos: 'nom propre', fr: 'Susukinohara, la lande aux herbes hautes (薄 : l’eulalie, une grande herbe à plumets)', name: true },
+  草: { pos: 'nom', r: 'くさ', fr: 'l’herbe' },
+  言蟲: { pos: 'nom', r: 'ことむし', fr: 'kotomushi : petites bêtes nées des bouts de phrases jamais finis' },
+  お守り: { pos: 'nom', r: 'おまもり', fr: 'amulette, porte-bonheur' },
+  ご自由に: { pos: 'expression', r: 'ごじゆうに', fr: 'librement, comme vous voulez ; ご自由にどうぞ : servez-vous' },
+  どうぞ: { pos: 'adverbe', fr: 'je vous en prie, allez-y' },
   // la fin de la rumeur (le joueur la garde)
   そうだ: { pos: 'fin de phrase', fr: 'il paraît que… (ce qu’on t’a dit)', forms: ['そうです', 'そうよ'], note: 'forme simple + そうだ : 暮らしているそうだ' },
 };

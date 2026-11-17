@@ -1,6 +1,6 @@
 # 言霊 Kotodama : fichier de passation
 
-À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 8 (le chapitre 1 en entier). Le document de conception est `DESIGN.md`, à la racine du dépôt.
+À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 10 (les rencontres). Le document de conception est `DESIGN.md`, à la racine du dépôt.
 
 ## 0. Où est le jeu
 
@@ -23,9 +23,35 @@ Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ## 2. État au 17 novembre
 
+### Session 10 : les rencontres
+
+Branche `session-10-rencontres`, PR #8 : https://github.com/arsenesistel-del/kotodama/pull/8. À fusionner dans `main` pour la mise en ligne. La PR #7 (chapitre 1) a été fusionnée au début de la session. REFONTE.md (session 9, conception sans code) est intégrée à `DESIGN.md` : section « Un monde à parcourir ».
+
+- **Retiré** : 霧野峠 de la carte du monde, le repaire du combat v4 (écran titre, onglets 依頼, 図鑑, 設定, règles) et l'accès libre aux six distorsions. Les créatures v4 ne restent que comme boss des contrats. Une sauvegarde restée sur le col reprend au village. Les réglages du combat (lectures, effets sonores) sont dans 設定 (`fieldui.ts`, ils restent dans `kotodama.v1`).
+- **薄野原** (`src/world/maps/susuki.ts`, 42 × 28) : la lande à l'est du village, par la route de l'est (sortie est de 霧野村, panneau 東 薄野原). Six nappes d'herbes hautes (« g » dans le terrain), trois zones de niveaux (`zones` de la carte) : l'entrée 1 à 3, le milieu 3 à 6, autour de l'étang 6 à 10. À la première arrivée, ワケ explique les 言蟲. Les cartes acceptent maintenant des sorties est et ouest.
+- **Herbes hautes** peintes par le code dans la palette du pack (`paintGrass` dans `VillageScene.ts`) : tiges, plumets d'eulalie, rangées qui se recouvrent ; le pied des touffes passe devant le sabreur (herbe jusqu'aux genoux), la touffe s'agite à chaque pas, le vent les couche de temps en temps.
+- **Rencontres** : une chance sur neuf par case d'herbe traversée (trois cases de répit en arrivant). Éclair, puis le combat. Le **鈴** pend au cou du 地蔵 de l'entrée (l'examiner) ; touche X, le bouton 鈴 de l'encart, ou メニュー → 持ち物. Tant qu'il tinte, aucune rencontre.
+- **Les quatre 言蟲** (`src/world/field.ts`) : つぶやき (と思う), うわさ鳥 (そうだ), まよい蛾 (かもしれない), わけ狐 (んだ). Elles se montrent au fil de l'histoire : つぶやき d'emblée, うわさ鳥 après le moulin (c1), まよい蛾 après le col (c2), わけ狐 après le pont (c3) ; la plus récente sort un peu plus souvent. Variante rare 朱 (une sur seize) : recolorée en vermillon, un niveau et une phrase de plus, 崩, 奥義 et 怒, double expérience, un 鉄片.
+- **Images** : quatre peintures à l'encre (760 crédits) dans `art/raw/k1_tsubuyaki.png`… `k4_wakegitsune.png`, détourées (`tools/process.py k_tsubu k_uwasa k_mayoi k_wake`, 360 px de haut) et pixelisées (`tools/pixelize.py`, 34 à 48 pixels, yeux vermillon cherchés dans la peinture entière, l'oiseau et le renard retournés vers le sabreur). Décor de combat 薄野原 peint par le code (`SETS.susuki` dans `pixel.js`).
+- **Combats courts** (`huntBeast` dans `game.js`) : même moteur que la chasse. Chaque phrase juste vaut une (deux sur un 奥義) : 2 phrases jusqu'au niveau 3, 3 jusqu'au 7, 4 au-delà. Bandeau d'entrée plus court, bouton 逃げる (fuir, sans pénalité). Fin : panneau 鎮まった (expérience, butin, ce qui vient d'être acquis), puis retour dans les herbes à la même place.
+- **Niveau des bêtes = difficulté de la phrase** (`levelSpec`) : 1 à 3, phrase entière affichée au présent (furigana sur demande, F) ; 4 à 6, mots + fin, présent et négatif ; 7 à 9, passé et **négatif passé** (nouvelle forme du moteur : じゃなかった, くなかった, 来なかった, avec ses fautes diagnostiquées), 11 s au lieu de 13 ; 10, 祓, fins du village mêlées, et phrase seulement entendue (聞, voix japonaise de Chrome, micro coupé pendant qu'elle parle, clic pour réécouter ; sans voix japonaise, on affiche les mots). Les structures et les mots sont choisis par le suivi FSRS, comme dans les chasses.
+- **Le 渡り** : niveau par l'expérience (bêtes : 3 + 2 × niveau, plus les critiques et un combat sans coup reçu ; contrat 30, boss 60, rapport 20). PV = 4 + niveau/2 ; +0,3 s de temps par niveau, 3 s au plus. Les PV restent d'un combat à l'autre et reviennent au village (plus tard : les dango). À bout de forces, ワケ ramène au 茶屋. Les chasses de contrat profitent aussi des PV et du temps. Encart en haut à droite dans les herbes : niveau, PV, expérience, 鈴, zone et niveaux.
+- **Butin** : 和紙, 米, 墨, 糸, 木片, 鉄片 selon l'espèce ; plus de tirages au niveau 5 et 8, sur une variante rare, et quand une phrase à échéance ou difficile pour le joueur (structure à revoir, difficulté FSRS 7 ou plus, deux ratés) a été bien dite (règle 6).
+- **メニュー** : **持ち物** (le 渡り, les matériaux, le 鈴 à faire tinter, les 欠片) et **図鑑** (les quatre 言蟲 numérotés, avec leur fin, leur histoire, rencontres, apaisements, niveau le plus haut, variantes rares, structures acquises ; les six distorsions du chapitre, avec leur phrase apaisée ; silhouettes et « ？？？ » pour le reste).
+- Sauvegarde : `kotodama.field.v1` (niveau, expérience, PV, sac, clochette, bêtes rencontrées), comprise dans l'export de 設定 → 記録.
+- `npm test` lance aussi `scripts/check-field.mjs` (tableau des niveaux, espèces débloquées, 900 phrases de bêtes acceptées, expérience, butin plus riche quand c'est dur, clochette) ; `check-engine` vérifie 25 600 phrases (avec le négatif passé) ; `check-maps` vérifie les herbes hautes (atteignables, toutes dans une zone de la tranche 1 à 10) et les sorties est et ouest.
+- Vérifié dans Chrome sans écran (mode test, réponses tapées) : passage du village à 薄野原 et retour, intro de ワケ, 鈴 trouvé et sonné (aucune rencontre en traversant), rencontre forcée puis fuite, combats aux niveaux 2, 5, 8 (rare) et 10 (祓 et phrase entendue), une défaite et le retour au 茶屋, 持ち物, 図鑑, réglages du combat dans 設定, chasse du contrat du moulin avec le niveau du joueur et son expérience, carte du monde sans le col, ancienne sauvegarde sur le col. Aucune erreur JavaScript. `npm test` et `npm run build` passent. Pas vérifié à la voix réelle (ni la voix japonaise de Chrome pour les phrases entendues).
+- Pas fait (sessions 11 et 12) : intérieurs, objets à examiner, quêtes de chasse, dango et fabrication, niveaux conseillés des boss, équilibrage. Les matériaux ne servent encore à rien.
+
+Pour suivre : dans les herbes, `KDW.grass()` (case, zone, clochette), `KDW.field()` (le 渡り), `KDW.meet()` force la prochaine rencontre, `KDW.fight('mayoiga', 8, true)` lance un combat, `KDW.bell(true)`. En combat, `KD.eres()` dit si le panneau de fin est ouvert, `KD.cont()` le ferme. Ajouter `listen` à l'adresse (`#debug-listen`) pour voir les phrases entendues sans voix japonaise. Repartir de zéro : `localStorage.removeItem('kotodama.field.v1')`.
+
+### Session 9 : la refonte (conception)
+
+Session sans code : retour d'Arsène sur le chapitre 1 et nouvelle direction, « un monde à parcourir », à la Pokémon. Document `REFONTE.md` dans le projet, intégré à `DESIGN.md` en session 10.
+
 ### Session 8 : le chapitre 1, du début à la fin
 
-Branche `session-8-chapitre-1`, PR #7 : https://github.com/arsenesistel-del/kotodama/pull/7. À fusionner dans `main` pour la mise en ligne (la fusion n'a pas pu se faire depuis la session).
+Branche `session-8-chapitre-1`, PR #7 : https://github.com/arsenesistel-del/kotodama/pull/7, fusionnée dans `main` (session 10) et en ligne.
 
 - **Nouvelle partie** : écran 言霊 « はじめる » (le clic autorise le son et le micro), cinématique d'ouverture sur deux peintures avec un narrateur doublé (voix Kuro), sous-titres français, carton 第一章「霧の村」. Puis le col en pixel (`src/world/maps/pass.ts`) : sentier en lacets dans la brume, la borne dont l'inscription s'arrête.
 - **Prologue** : en approchant, une voix dans la pierre (ワケ, « ？？？ ») appelle le joueur. À la borne, tutoriel de la voix : lire l'inscription telle quelle, puis la finir avec と思う (「霧の向こうにも、道はあると思う。」). La pierre se fend de vermillon, ワケ sort, se présente, décide de suivre. Avant, une brume barre la descente (`barriers` dans la carte) ; après, la sortie sud mène droit à l'entrée nord du village.
@@ -217,7 +243,7 @@ Style : peinture à l'encre sumi-e, dark fantasy, adulte. Os pâle et gris sur n
 
 Outil : connecteur ElevenLabs, `creative_generate_image`, modèle `gpt-image-2.5-sunburst`, 1 variation, 190 crédits par image. Flow : `kU3JafHN2mqqQZTk0WH1`. Sortie 1280×720 quoi qu'on demande. Récupération : `creative_get_generations` donne une URL signée (2 h), téléchargeable avec curl. Ne jamais relancer un appel pour réessayer, ça refacture.
 
-Dépensé : 10 images (1 900 crédits), puis les voix du chapitre 1 (environ 1 800), puis en session 6 les voix des contrats (1 674) et 3 peintures de souvenir (570). En session 8 : 10 images (1 900) et 93 voix (environ 2 950). Le compte affiche 40 000 crédits par mois, 10 790 utilisés au 17 novembre au soir. Narrateur des cinématiques : Kuro (`UUpoAQhpz37lNIWNVLoF`).
+Dépensé : 10 images (1 900 crédits), puis les voix du chapitre 1 (environ 1 800), puis en session 6 les voix des contrats (1 674) et 3 peintures de souvenir (570). En session 8 : 10 images (1 900) et 93 voix (environ 2 950). En session 10 : 4 peintures de 言蟲 (760). Le compte affiche 40 000 crédits par mois, 11 550 utilisés au 17 novembre au soir. Narrateur des cinématiques : Kuro (`UUpoAQhpz37lNIWNVLoF`).
 
 Gabarit de prompt pour une créature ou un personnage :
 
@@ -233,15 +259,15 @@ Détourage : `tools/process.py` (alpha tiré de la luminosité + silhouette remp
 
 - `index.html`, `src/main.ts` : point d'entrée, création du jeu Phaser.
 - `src/scenes/BootScene.ts` : chargement des images, des sons et des polices, puis village ou carte selon la sauvegarde. `src/scenes/CombatScene.ts` : pose le combat v4. `src/scenes/VillageScene.ts` : le village en pixel. `src/scenes/WorldMapScene.ts` : la carte du monde.
-- `src/world/` : le monde. `fsrs.ts` (courbe d'oubli), `progress.ts` (suivi caché, journal du jour, bilan, sauvegarde complète), `record.ts` (écran 記録), `quests.ts` (contrats : état, qui dit quoi, sites, marqueurs, encart), `quest-lines.ts` (leurs répliques, `HEALED`, `MEMORY_ART`), `story-lines.ts` (prologue, arrivée, épilogue, `CINE_ART`, `CINE_FX`), `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu : `kirino.ts`, `pass.ts` pour le col du prologue), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
+- `src/world/` : le monde. `field.ts` (rencontres : espèces, niveaux, 渡り, butin, sac, clochette, sans Phaser ni DOM), `fieldui.ts` (écrans 持ち物 et 図鑑, réglages du combat), `fsrs.ts` (courbe d'oubli), `progress.ts` (suivi caché, journal du jour, bilan, sauvegarde complète), `record.ts` (écran 記録), `quests.ts` (contrats : état, qui dit quoi, sites, marqueurs, encart), `quest-lines.ts` (leurs répliques, `HEALED`, `MEMORY_ART`), `story-lines.ts` (prologue, arrivée, épilogue, `CINE_ART`, `CINE_FX`), `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu : `kirino.ts`, `pass.ts` pour le col du prologue, `susuki.ts` pour 薄野原), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
 - `src/assets/world/` : tuiles, personnages, sons du pack Ninja Adventure.
 - `src/combat/engine.js` : générateur de phrases, vérification (`matches`), diagnostic (`diagnose`), statuts, les six distorsions (`STAGES`).
-- `src/combat/scene.js` : fond à l'encre du titre et du repaire, état partagé, sons synthétisés. `src/combat/pixel.js` : la chasse en pixel (décors, créature, sabreur, ワケ, effets, sceaux).
+- `src/combat/scene.js` : fond à l'encre (écran de résultat d'un contrat), état partagé, sons synthétisés. `src/combat/pixel.js` : la chasse en pixel (décors, créature, sabreur, ワケ, effets, sceaux).
 - `src/mic.js` : le micro (Web Speech API), partagé par le combat et les dialogues. `src/world/answer.ts` : vérification des réponses dites. `src/world/voice.ts`, `voicefile.ts` : lecture des voix. `src/assets/voice/` : les voix et `index.json`.
-- `src/combat/game.js` : déroulé d'une chasse, sauvegarde, repaire, résultat.
+- `src/combat/game.js` : déroulé d'une chasse de contrat ou d'une rencontre (`huntContract`, `huntBeast`), sauvegarde, résultat. Plus de repaire.
 - `src/combat/shell.html`, `src/combat/style.css` : interface du combat. `src/combat/assets.ts` : URLs des images. `src/combat/mount.ts` : montage dans la page.
-- `src/assets/combat/` : peintures du titre et du repaire (WebP), `px/` : les créatures en pixel. `src/assets/memory/` : peintures des souvenirs. `art/raw/` : originaux.
-- `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes ; `scripts/check-dialogue.mjs` : vérification des répliques ; `scripts/check-progress.mjs` : vérification du suivi caché. Les quatre tournent avec `npm test`.
+- `src/assets/combat/` : peintures à l'encre des créatures (WebP, montrées dans le 図鑑 ; `k_*` pour les 言蟲), `px/` : les créatures en pixel. `src/assets/memory/` : peintures des souvenirs. `art/raw/` : originaux.
+- `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes ; `scripts/check-dialogue.mjs` : vérification des répliques ; `scripts/check-progress.mjs` : vérification du suivi caché ; `scripts/check-field.mjs` (avec `field-entry.ts`) : vérification des rencontres. Les cinq tournent avec `npm test`.
 - `scripts/voice-lines.mjs` : répliques à doubler et texte pour le moteur de voix. `tools/voicevox.mjs` : voix des figurants avec VOICEVOX, sur le PC d'Arsène.
 - `tools/process.py` : détourage. `tools/pixelize.py` : version pixel des créatures. `tools/test_micro.html` : page de test du micro.
 - `.github/workflows/deploy.yml` : tests, construction et mise en ligne.
@@ -255,7 +281,9 @@ Dans le village, `window.KDW` : `KDW.go(x, y)` téléporte (en tuiles), `KDW.sta
 
 Dialogues, `window.KDV` : `KDV.state()` (réplique, défilement, オート, スキップ, panneau, bulle), `KDV.open('mansaku')` ouvre un dialogue, `KDV.text()` donne le HTML de la réplique. Réponses : `KDV.answer(k)` dit la bonne phrase (choix k), `KDV.wrong()` la première faute prévue, `KDV.say(texte)` n'importe quoi ; `KDV.state().answer` et `.voice`. En mode test, un champ sous la phrase remplace le micro (Entrée envoie). Attention, en Chrome sans écran Phaser tourne au ralenti : le dialogue d'arrivée met une dizaine de secondes à s'ouvrir. Mots et réglages : `kotodama.words.v1`, `kotodama.settings.v1`, `kotodama.slots.v1`. Progression : `kotodama.progress.v1`.
 
-Ajouter un lieu en pixel : une carte dans `src/world/maps/` (terrain en lettres, objets du catalogue, PNJ, arrivées, sorties), l'inscrire dans `maps/index.ts`, ouvrir le lieu dans `places.ts`, écrire ses répliques dans `dialogue.ts`. `npm test` dit si quelque chose est inaccessible.
+Ajouter un lieu en pixel : une carte dans `src/world/maps/` (terrain en lettres, objets du catalogue, PNJ, arrivées, sorties), l'inscrire dans `maps/index.ts`, ouvrir le lieu dans `places.ts`, écrire ses répliques dans `dialogue.ts`. `npm test` dit si quelque chose est inaccessible. Une zone sauvage : des « g » dans le terrain et des `zones` (rectangle, niveaux) qui les couvrent toutes ; une sortie peut mener droit à un autre lieu (`place`), sur les quatre côtés.
+
+Ajouter une espèce de 言蟲 : une entrée dans `SPECIES` (`field.ts` : fin, image, contrat qui l'ouvre, matériaux, histoire), une peinture dans `art/raw/`, `tools/process.py` puis `tools/pixelize.py` (taille dans `SIZE`), puis `npm test`.
 
 ## 6. Suite prévue
 
@@ -263,7 +291,7 @@ Lore retenu : voir `DESIGN.md`. Le monde tenait par la parole, les phrases laiss
 
 Plan validé par Arsène, dans cet ordre :
 1. Fait en v4 : animations du combat, interface, variété.
-2. Premier village : fait (sessions 2 à 8). Chapitre 1 complet en session 8 : prologue, arrivée, trois contrats, deux contrats de révision, cœur de la brume, boss, épilogue. Reste pour ce chapitre : portraits illustrés, écran du 言葉帳. Suite : chapitre 2, 灯籠宿 (dire pourquoi : から, ので, ため…).
+2. Premier village : fait (sessions 2 à 8). Chapitre 1 complet en session 8 : prologue, arrivée, trois contrats, deux contrats de révision, cœur de la brume, boss, épilogue. Refonte « un monde à parcourir » (`DESIGN.md`) : session 10 faite (rencontres) ; session 11, le village (intérieurs du 茶屋, de la maison de 萬作 et du moulin, objets à examiner, correction des placements dont le moulin à eau, quêtes de chasse des villageois) ; session 12, l'économie (dango et fabrication à voix haute, niveaux conseillés des boss, équilibrage 1 à 10). Puis Arsène rejoue le chapitre 1. Reste aussi : portraits illustrés, écran du 言葉帳. Suite : chapitre 2, 灯籠宿 (dire pourquoi : から, ので, ため…), tranche 8 à 20.
 3. Forge : les fragments servent à forger des lames (une lame = une famille de structures : avis, cause, condition...) et des sceaux à équiper qui changent les règles (moins de temps pour plus de dégâts, sans furigana pour un bonus).
 4. Traques : une faute répétée fait naître sa propre créature, à rechasser.
 5. Nombres et compteurs avec le modèle kana en local.

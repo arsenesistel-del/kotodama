@@ -90,22 +90,25 @@ const FRAMES = {
   ndesu: { lab: '〜んです', k: 'んです', r: 'んです', rx: '(?:ん|の)(?:です|だ)' }
 };
 const TYPES = { na: 'な形容詞', no: '名詞', ia: 'い形容詞', ve: '動詞' };
-const FORMS = { aff: '', neg: '否定', past: '過去' };
-const FORMNAME = { aff: 'la forme simple', neg: 'le négatif (否定)', past: 'le passé (過去)' };
+// negpast : le négatif passé (session 10, niveaux 7 à 9 des 言蟲).
+const FORMS = { aff: '', neg: '否定', past: '過去', negpast: '否定・過去' };
+const FORMNAME = { aff: 'la forme simple', neg: 'le négatif (否定)', past: 'le passé (過去)', negpast: 'le négatif passé (否定・過去)' };
+// Négatif passé d'un verbe : sa forme négative, ない devient なかった.
+const negPast = w => w.map(x => x.replace(/ない$/, 'なかった').replace(/無い$/, '無かった'));
 
 // prédicat pour une forme donnée : écriture, lecture, regex
 function pred(type, e, form, frame) {
   if (type === 'na' || type === 'no') {
     const w = e[1];
-    const link = form === 'neg' ? ['じゃない', '(?:じゃない|ではない|じゃ無い|では無い)'] : form === 'past' ? ['だった', 'だった']
+    const link = form === 'neg' ? ['じゃない', '(?:じゃない|ではない|じゃ無い|では無い)'] : form === 'negpast' ? ['じゃなかった', '(?:じゃなかった|ではなかった)'] : form === 'past' ? ['だった', 'だった']
       : frame === 'kamo' ? ['', ''] : frame === 'ndesu' ? ['な', 'な'] : ['だ', 'だ'];
     return { k: w[0] + link[0], r: w[1] + link[0], rx: alt(w) + link[1] };
   }
   if (type === 'ia') {
-    const w = e[1], end = form === 'neg' ? 'くない' : form === 'past' ? 'かった' : 'い';
+    const w = e[1], end = form === 'neg' ? 'くない' : form === 'negpast' ? 'くなかった' : form === 'past' ? 'かった' : 'い';
     return { k: w[0] + end, r: w[1] + end, rx: alt(w) + (form === 'neg' ? 'く(?:ない|無い)' : end) };
   }
-  const w = form === 'neg' ? e[2] : form === 'past' ? e[3] : e[1];
+  const w = form === 'neg' ? e[2] : form === 'negpast' ? negPast(e[2]) : form === 'past' ? e[3] : e[1];
   return { k: w[0], r: w[1], rx: alt(w) };
 }
 function genJoint(frame, type, forms) {
@@ -126,16 +129,19 @@ function genJoint(frame, type, forms) {
     if (form === 'aff') { add(w + 'いだ', 'Pas de だ après un adjectif en い.'); add(w + 'いな', 'Pas de な après un adjectif en い.'); }
     if (form === 'past') { add(w + 'いかった', 'Au passé, い devient かった.'); add(w + 'いだった', 'Au passé, い devient かった, sans だった.'); add(w + 'かっただ', 'Pas de だ après かった.'); }
     if (form === 'neg') { add(w + 'いくない', 'Au négatif, い devient くない.'); add(w + 'い?(?:じゃない|ではない)', 'Au négatif, un adjectif en い prend くない.'); add(w + 'くないだ', 'Pas de だ après くない.'); }
+    if (form === 'negpast') { add(w + 'いくなかった', 'Au négatif passé, い devient くなかった.'); add(w + 'くないだった', 'Au négatif passé : くなかった, pas くないだった.'); add(w + 'い?(?:じゃなかった|ではなかった)', 'Un adjectif en い prend くなかった.'); add(w + 'くなかっただ', 'Pas de だ après くなかった.'); }
   }
   if (type === 've') add(p.rx + '(?:だ|な)', 'Pas de だ ni de な après un verbe.');
   if ((type === 'na' || type === 'no') && form === 'neg') add(w + 'くない', 'くない est réservé aux adjectifs en い : じゃない.');
   if ((type === 'na' || type === 'no') && form === 'past') add(w + 'かった', 'かった est réservé aux adjectifs en い : だった.');
-  for (const f of ['aff', 'neg', 'past']) if (f !== form) bad.push({ rx: head + pred(type, e, f, frame).rx + F.rx, msg: 'Il fallait ' + FORMNAME[form] + '.' });
+  if ((type === 'na' || type === 'no') && form === 'negpast') { add(w + 'くなかった', 'くなかった est réservé aux adjectifs en い : じゃなかった.'); add(w + '(?:じゃない|ではない)だった', 'Au négatif passé : じゃなかった, pas じゃないだった.'); }
+  for (const f of ['aff', 'neg', 'past', 'negpast']) if (f !== form) bad.push({ rx: head + pred(type, e, f, frame).rx + F.rx, msg: 'Il fallait ' + FORMNAME[form] + '.' });
   for (const f in FRAMES) if (f !== frame) bad.push({ rx: head + '.*' + FRAMES[f].rx, msg: 'La fin demandée était ' + F.lab + '.' });
   return {
     key: frame + '.' + type, form,
     cue: { a: subj[0], ar: subj[1], b: dict, br: dictR, form: FORMS[form], frame: F.lab },
     canon: subj[0] + 'は' + p.k + F.k, kana: subj[1] + 'は' + p.r + F.r,
+    pk: p.k, pr: p.r, fk: F.k, fr: F.r,
     rx: head + p.rx + F.rx, bad, broken: broken(type, e, form, frame)
   };
 }
@@ -144,12 +150,12 @@ function broken(type, e, form, frame) {
   const F = FRAMES[frame]; let w, tail;
   if (type === 'na' || type === 'no') {
     w = e[1];
-    tail = form === 'neg' ? 'くない' : form === 'past' ? 'かった' : frame === 'kamo' ? R(['だ', 'な']) : frame === 'ndesu' ? R(['だ', '']) : R(['', 'な']);
+    tail = form === 'neg' ? 'くない' : form === 'negpast' ? 'くなかった' : form === 'past' ? 'かった' : frame === 'kamo' ? R(['だ', 'な']) : frame === 'ndesu' ? R(['だ', '']) : R(['', 'な']);
   } else if (type === 'ia') {
     w = e[1];
-    tail = form === 'neg' ? R(['いくない', 'いじゃない', 'くないだ']) : form === 'past' ? R(['いかった', 'いだった', 'かっただ']) : R(['いだ', 'いな']);
+    tail = form === 'neg' ? R(['いくない', 'いじゃない', 'くないだ']) : form === 'negpast' ? R(['いくなかった', 'くないだった']) : form === 'past' ? R(['いかった', 'いだった', 'かっただ']) : R(['いだ', 'いな']);
   } else {
-    w = form === 'neg' ? e[2] : form === 'past' ? e[3] : e[1];
+    w = form === 'neg' ? e[2] : form === 'negpast' ? negPast(e[2]) : form === 'past' ? e[3] : e[1];
     tail = frame === 'ndesu' ? 'な' : 'だ';
   }
   return { a: e[0][0], ar: e[0][1], w: w[0], wr: w[1], tail, fk: F.k, fr: F.r, text: e[0][0] + 'は' + w[0] + tail + F.k };

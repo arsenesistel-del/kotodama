@@ -44,6 +44,9 @@ function terrain(): string[][] {
   fill('d', 23, 28, 24, H - 1); // la grand-route, au sud
   fill('d', 14, 29, 22, 30); // vers les rizières
   fill('d', 29, 15, 40, 16); // route de l'est
+  // Session 10 : la route de l'est sort du village vers 薄野原, la lande aux herbes hautes.
+  fill('.', 41, 13, W - 1, 18);
+  fill('d', 41, 15, W - 1, 16);
   fill('d', 39, 17, 40, 24); // vers le pont suspendu
   fill('d', 39, 28, 40, 29); // après le pont suspendu
   fill('d', 38, 31, 40, 34); // allée du cimetière
@@ -102,6 +105,8 @@ const objects: Placed[] = [
 
   // Le sud, vers la grand-route.
   { o: OBJ.sign, x: 22, y: 34, id: 'sign-south' },
+  // L'est, vers 薄野原.
+  { o: OBJ.sign, x: 43, y: 13, id: 'sign-east' },
 ];
 
 // Arbres isolés dans le village (en plus de la forêt).
@@ -139,10 +144,12 @@ export const KIRINO: MapDef = {
   spawns: {
     north: { x: 23.5, y: 1.5, face: 'down' },
     south: { x: 23.5, y: 38.5, face: 'up' },
+    east: { x: 46.5, y: 16.6, face: 'left' },
   },
   exits: [
     { side: 'north', from: 21, to: 26, gate: 'north' },
     { side: 'south', from: 21, to: 26, gate: 'south' },
+    { side: 'east', from: 14, to: 17, gate: 'west', place: 'susuki' },
   ],
   npcs: [
     { id: 'mansaku', sprite: 'actors/oldman3', x: 10.5, y: 14, face: 'down' },
@@ -155,6 +162,7 @@ export const KIRINO: MapDef = {
     'sign-north': 'sign-north',
     'sign-bridge': 'sign-bridge',
     'sign-south': 'sign-south',
+    'sign-east': 'sign-east',
     'tomb-otsuyu': 'tomb-otsuyu',
     'site-mill': 'site-mill',
     'site-jizo': 'site-jizo',

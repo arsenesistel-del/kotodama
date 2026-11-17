@@ -25,6 +25,13 @@ const fresh = (): WorldSave => ({ v: 1, scene: 'village', place: 'pass', gate: '
 /** Partie commencée avant la session 8 (sans prologue) : on la considère comme passée par le col. */
 function migrate(s: WorldSave): WorldSave {
   if (!s.flags) s.flags = {};
+  // 霧野峠 (le repaire) n'est plus sur la carte depuis la session 10.
+  if (s.place === 'touge') {
+    s.place = 'kirino';
+    s.gate = 'north';
+    s.scene = 'village';
+    s.pos = undefined;
+  }
   if (!s.flags.prologue && s.place !== 'pass') {
     s.flags.prologue = true;
     s.flags.wake = true;

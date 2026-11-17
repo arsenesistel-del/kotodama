@@ -8,8 +8,8 @@ import { maybeWeekly } from '../world/vn';
 
 const VERMILION = 0xd4412b;
 const BONE = 0xece6da;
-// Ordre de parcours au clavier : la grand-route, avec le col juste après le village.
-const ORDER = ['kirino', 'touge', ...ROUTE.slice(1)];
+// Ordre de parcours au clavier : la grand-route.
+const ORDER = ROUTE;
 
 // La carte du monde, à l'encre. On voyage d'un lieu à l'autre en un clic.
 export class WorldMapScene extends Phaser.Scene {
@@ -155,7 +155,6 @@ export class WorldMapScene extends Phaser.Scene {
     let action: string;
     if (!p.open) action = 'La route ne s’ouvre qu’une fois le lieu précédent apaisé.';
     else if (p.soon) action = 'La route est ouverte. 第二章 : à venir.';
-    else if (p.kind === 'site') action = '<kbd>Entrée</kbd> chasser les distorsions (combat)';
     else action = `<kbd>Entrée</kbd> ${here ? 'retourner au village' : 'y aller'}`;
     UI.placeInfo(p, action + '<br><kbd>←</kbd><kbd>→</kbd> changer de lieu');
   }
@@ -176,8 +175,8 @@ export class WorldMapScene extends Phaser.Scene {
     const save = world();
     const from = save.place;
     if (p.kind === 'village') {
-      // Venir du col, c'est entrer par le nord ; sinon on reprend l'entrée par laquelle on était sorti.
-      if (from !== p.id) save.gate = from === 'touge' ? 'north' : 'south';
+      // Venir d'un autre lieu, c'est entrer par la grand-route, au sud.
+      if (from !== p.id) save.gate = 'south';
       save.place = p.id;
       save.pos = undefined;
       save.scene = 'village';
@@ -192,10 +191,6 @@ export class WorldMapScene extends Phaser.Scene {
       this.cameras.main.fadeOut(420, 5, 5, 5);
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         if (p.kind === 'village') this.scene.start('village');
-        else {
-          this.sound.stopAll();
-          this.scene.start('combat');
-        }
       });
     });
   }

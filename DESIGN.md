@@ -2,6 +2,8 @@
 
 Session 0, 17 novembre 2026. Version éditable (avec les schémas) : https://claude.ai/artifact/GqjVpDXpT5q3FnbojRCHQt
 
+Refonte « un monde à parcourir » (conçue en session 9, validée par Arsène) intégrée en session 10 : voir la section « Un monde à parcourir ».
+
 ## Intention
 
 Kotodama est un RPG en pixel art, entièrement en japonais, où l'on avance en parlant à voix haute. Il vise deux choses : rendre automatiques les jointures de la phrase à l'oral, et habituer l'oreille et les yeux à un vrai jeu japonais, jusqu'à pouvoir ouvrir un visual novel sans filet.
@@ -97,9 +99,9 @@ Le jeu se passe dans 八雲の国 (Yakumo), un Japon imaginaire de la fin d'Edo,
 
 - Une carte à l'encre, avec des lieux reliés par des routes. On voyage d'un lieu à l'autre en un clic, sans marcher entre les régions.
 - Dans un lieu, on se déplace librement en pixel, vu de dessus.
-- Chaque région a un village central, trois ou quatre sites de chasse et un site de boss. La route suivante s'ouvre à la fin du chapitre.
+- Chaque région a un village central, sûr comme une ville de Pokémon, et autour des zones sauvages (herbes hautes, rizières en friche, sous-bois, nappes de brume) où vivent les 言蟲, plus coriaces à mesure qu'on s'éloigne du village. Les boss sont réservés à l'histoire. La route suivante s'ouvre à la fin du chapitre.
 - Chaque région apporte un nouveau 役割語, comme un dialecte qu'on découvre en voyageant.
-- Les régions finies restent ouvertes : on y revient pour les contrats de révision et les versions renforcées des créatures.
+- Les régions finies restent ouvertes : on y revient pour les contrats de révision, et y farmer, c'est réviser (le suivi caché choisit les phrases selon l'échéance).
 
 **La route, un chapitre par lieu**
 
@@ -223,6 +225,7 @@ Village → Enquête → Chasse → Retour → contrat suivant. Sous le capot, u
 **Chasse**
 
 - Le combat v4 : 斬, 祓, 奥義, 崩, 怒, coups critiques, riposte, diagnostic des erreurs en français.
+- Depuis la refonte, la chasse d'un contrat est un combat de boss d'histoire. Le même moteur fait les combats courts contre les 言蟲 (voir « Un monde à parcourir »).
 - Les phrases mélangent la structure du contrat, ce qui arrive à échéance et un peu des chapitres passés.
 - À la fin, l'apaisement : la créature dit enfin sa phrase entière, puis un court souvenir doublé (deux à quatre répliques) montre qui l'avait laissée en suspens. C'est la récompense d'exposition et la petite histoire du contrat.
 
@@ -232,6 +235,82 @@ Village → Enquête → Chasse → Retour → contrat suivant. Sous le capot, u
 - Le PNJ gagne du 縁, donne des 欠片 et parfois le contrat suivant.
 - On l'entend utiliser de nouveau la structure perdue : le signe audible que le village guérit.
 - Le butin est plus riche quand la chasse portait sur des structures difficiles pour toi.
+- Le contrat rapporté donne aussi de l'expérience au 渡り.
+
+## Un monde à parcourir : rencontres, niveaux, butin
+
+Refonte conçue en session 9 après le retour d'Arsène sur le chapitre 1 : l'ambiance tient, la zone de départ est bonne, mais le jeu manque de volume et de vie. La chasse se passait dans une zone à part du monde, il n'y avait rien à faire entre deux contrats, on n'entrait nulle part. Il veut une progression à la Pokémon : des petites créatures faciles partout, des niveaux, des ressources, des quêtes de chasse, des boss réservés à l'histoire, et une montée vers le N1 qui prend son temps, à l'oral comme en compréhension.
+
+Pourquoi : ce qui rend une jointure automatique, c'est le nombre de fois où on la dit. Ce volume ne venait que du repaire, détaché du monde. Les rencontres le ramènent dans le monde.
+
+**Ce qui disparaît**
+
+- 霧野峠 sur la carte du monde, le repaire du combat v4 (onglets 依頼, 図鑑, 設定) et l'accès libre aux six distorsions.
+- Les distorsions v4 ne sont plus que des boss d'histoire : 欠けの影, 揺らぎ, 崩れ (contrats du chapitre 1), 伝え火 (chapitre 2), 訳の主 (chapitre 8), 歪みの王 (fin). 霧の主 reste le boss du chapitre 1.
+- Le 図鑑 devient le bestiaire de tout ce qu'on a croisé, dans la メニュー. Les réglages du combat passent dans 設定.
+
+**Les 言蟲 (kotomushi)**
+
+- Lore : une phrase importante laissée en suspens devient un 歪み. Les bouts de phrases ordinaires lâchés sans être finis (「えっと……」, 「まあ……」, un avis ravalé) ne deviennent rien d'aussi gros : ils s'agglutinent en petites bêtes, les 言蟲. Pas méchantes, elles grignotent les mots qui traînent. Le ton reste celui de Mushishi.
+- Où : hors des villages. Herbes hautes (薄), rizières en friche, sous-bois, nappes de brume. Le village reste sûr.
+- Rencontre : au hasard en marchant dans les herbes hautes. Un 鈴 (clochette) les éloigne quand on veut juste traverser.
+- Une espèce, une structure : voir la bête, c'est savoir quelle fin dire (reconnaître avant de produire). Au chapitre 1 : つぶやき (と思う), うわさ鳥 (そうだ), まよい蛾 (かもしれない), わけ狐 (んだ). Chaque chapitre ajoute ses espèces (chapitre 2 : から, ので, ため…). Variantes rares plus fortes, qui donnent plus.
+- Combat court : 2 à 4 phrases, une minute au plus, même moteur que la chasse (斬, critique, riposte, diagnostic). Pas de 怒 ni de 奥義 sur les petites, sauf variantes rares.
+- Images : une peinture à l'encre par espèce, pixelisée avec `tools/pixelize.py` comme les créatures v4.
+
+**Les niveaux**
+
+Le niveau d'une bête est la difficulté de sa phrase. Le niveau du joueur ne change jamais la phrase demandée.
+
+| Niveau de la bête | Ce qu'on dit | Échelle |
+| --- | --- | --- |
+| 1 à 3 | Phrase entière affichée, présent | Lire |
+| 4 à 6 | Mots + fin, présent et négatif | Construire |
+| 7 à 9 | Passé et négatif passé, moins de temps | Construire |
+| 10 et plus | Phrases déformées (祓), structures du chapitre mélangées | Construire |
+| Haut de tranche | Phrase seulement entendue, rien d'affiché | Écoute |
+
+- Tranches par chapitre : chapitre 1 niveaux 1 à 10, chapitre 2 8 à 20, chapitre 3 18 à 30, et ainsi de suite jusqu'au chapitre 8 (70 à 80) et au chapitre final (80 à 99). Dans une région, plusieurs zones de niveaux différents : un champ facile près du village, une forêt plus dure plus loin.
+- Les anciennes zones restent ouvertes : y farmer, c'est réviser. Le suivi caché (FSRS) choisit les phrases selon l'échéance, comme dans les chasses.
+
+**Le joueur progresse**
+
+- Niveau du 渡り par l'expérience (bêtes, quêtes, contrats). Il donne des PV, un peu de temps de réponse, plus de droit à l'erreur. Du confort seulement : il ne dit jamais la phrase à la place du joueur.
+- Les boss d'histoire ont un niveau conseillé. On peut les tenter avant, c'est juste plus dur.
+
+**Le butin**
+
+- Matériaux selon l'espèce et le niveau : 墨, 和紙, 糸, 木片, 鉄片, 米, plus rares en haut de tranche. Plus riche quand la phrase était à échéance ou difficile pour le joueur (règle 6).
+- Ils servent dès le chapitre 1 : おみつ fait des dango qui soignent, 萬作 (charpentier) fabrique des pièces pour le sabre et des amulettes. On commande à voix haute. La vraie forge (lames par famille de structures, sceaux) reste au chapitre 4, 鍛冶谷.
+- Les 欠片 des boss restent la ressource rare.
+
+**Les quêtes de chasse**
+
+- Données par les villageois, à voix haute, sans tableau. Comprendre la demande fait partie de la quête : quelle bête, où, combien. Exemples : 権兵衛, les うわさ鳥 picorent ses rizières ; 太一 veut voir une まよい蛾 de près ; おたね manque de 糸.
+- Plus tard dans le jeu, certaines demandes ne sont que dites, sans texte.
+- Les contrats (quête principale) ne changent pas : enquête, déduction, boss, souvenir, rapport.
+
+**Un village plus vivant**
+
+- On entre dans les maisons : 茶屋 (sauvegarde, soins, commandes), maison de 萬作 (atelier), moulin de 太一, petit sanctuaire. Intérieurs tirés de Ninja Adventure, ou de The Japan Collection et Japanese House si la licence le permet (achat à demander).
+- Plus d'objets à examiner, avec du texte japonais à lire : panneaux, 絵馬, avis du village, étals.
+- Passe sur les placements incohérents : le moulin à eau d'abord, puis une revue en captures.
+- Plus tard : jour et nuit, PNJ qui bougent selon l'heure.
+
+**La compréhension prend son temps**
+
+- Les PNJ parlent plus long et plus naturellement quand le 縁 monte, les rumeurs entre figurants se multiplient, les quêtes de chasse passent peu à peu à l'oral seul, les bêtes d'écoute arrivent en haut de chaque tranche.
+- Le chapitre 1 passe d'environ 2 à 4 heures à 5 à 8 heures.
+
+**Découpage**
+
+1. Session 10, les rencontres : retrait de 霧野峠 et du repaire, zone 薄野原 à côté du village, herbes hautes et rencontres, quatre espèces du chapitre 1, combats courts, niveaux des bêtes, expérience et niveau du joueur, butin et sac, 図鑑 dans la メニュー.
+2. Session 11, le village : intérieurs (茶屋, maison de 萬作, moulin), objets à examiner, correction des placements, quêtes de chasse auprès des villageois.
+3. Session 12, l'économie : dango et fabrication chez おみつ et 萬作, niveaux conseillés des boss, équilibrage de la courbe 1 à 10 sur tout le chapitre 1.
+
+Ensuite Arsène rejoue le chapitre 1 dans les bonnes conditions.
+
+*Mis en œuvre (session 10)* : 霧野峠 et le repaire retirés (une sauvegarde restée sur le col reprend au village). 薄野原, à l'est du village (sortie par la route de l'est), avec trois zones d'herbes hautes : l'entrée (niveaux 1 à 3), le milieu (3 à 6), autour de l'étang (6 à 10). Une rencontre a une chance sur neuf par case d'herbe traversée. Le 鈴 pend au cou du 地蔵 de l'entrée ; touche X ou メニュー → 持ち物. Les espèces se montrent au fil de l'histoire : つぶやき d'emblée, うわさ鳥 après le moulin, まよい蛾 après le col, わけ狐 après le pont. Variante rare (朱, une chance sur seize) : vermillon, un niveau et une phrase de plus, avec 崩, 奥義 et 怒. Combat de 2 à 4 phrases (une phrase juste en vaut une), fuite possible (逃げる). Niveau 10 : 祓, fins mêlées et phrase seulement entendue (voix japonaise de Chrome ; sans elle, on affiche les mots). Le 渡り : 4 + niveau/2 PV, +0,3 s par niveau (3 s au plus), PV gardés entre deux combats et rendus au village ; à bout de forces, ワケ ramène au 茶屋. Expérience : bêtes, contrats (30, boss 60), rapports (20). Butin dans un sac (持ち物), plus riche quand une phrase à revoir a été bien dite. 図鑑 dans la メニュー : les quatre 言蟲 et les six distorsions du chapitre, silhouettes pour le reste.
 
 ## Courbe des structures, de N4+ à N1
 
@@ -253,7 +332,7 @@ Chaque chapitre rend au pays une façon de parler, donc une famille de structure
 - **Les nombres et compteurs** arrivent au marché du port (chapitre 3) si Kana Whisper est prêt, sinon plus tard dans un contrat à part.
 - **Rien n'est jamais fini** : chaque chapitre ajoute ses structures au suivi caché, et elles reviennent dans les chasses quand elles arrivent à échéance.
 - **Le boss de chapitre sert d'examen** : il mélange toutes les structures du chapitre et quelques anciennes, sans furigana sur les mots acquis.
-- **Taille visée** : quatre à six contrats et un boss par chapitre, soit deux à quatre heures de jeu.
+- **Taille visée** : quatre à six contrats et un boss par chapitre, plus les rencontres et les quêtes de chasse : cinq à huit heures de jeu pour le chapitre 1 (refonte).
 
 ## Chapitre 1 : 第一章「霧の村」
 
@@ -333,6 +412,7 @@ Ce document fixe la direction d'ensemble et le chapitre 1. Le reste du brainstor
 - 深淵, le mode sans fin : trois fautes et la partie s'arrête.
 - Le niveau libre, jugé par un LLM, coût à valider avec toi.
 - Les 72 micro-saisons, les versions renforcées des créatures. (Le bilan de la semaine est fait, session 7.)
+- Jour et nuit, PNJ qui bougent selon l'heure (refonte).
 - Envoyer un mot vers Anki d'un toucher.
 
 **Décisions prises par défaut**
@@ -342,5 +422,6 @@ Commente celles qui ne te vont pas.
 - Le compagnon s'appelle ワケ et c'est un fragment du traducteur.
 - Huit chapitres et un chapitre final, un lieu par chapitre.
 - Le joueur est un étranger : c'est ce qui justifie la langue simplifiée du début.
-- Les créatures de la v4 sont réparties dans l'histoire : 欠けの影, 揺らぎ et 崩れ au chapitre 1, 伝え火 au chapitre 2 (le relais aux lanternes), 訳の主 au chapitre 8, 歪みの王 à la fin.
+- Les créatures de la v4 sont réparties dans l'histoire, comme boss : 欠けの影, 揺らぎ et 崩れ au chapitre 1, 伝え火 au chapitre 2 (le relais aux lanternes), 訳の主 au chapitre 8, 歪みの王 à la fin. On ne les chasse plus librement (refonte).
+- On progresse à la Pokémon : petites bêtes dans les zones sauvages, niveaux, ressources, quêtes de chasse (refonte validée par Arsène).
 - Le jeu se joue sur PC avec un micro. Un mode téléphone, à l'écoute seule, reste une question ouverte.

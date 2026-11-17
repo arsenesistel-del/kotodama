@@ -6,7 +6,7 @@ const N = 400;
 let total = 0;
 const errors = [];
 for (const key of ALLKEYS) {
-  for (const form of ['aff', 'neg', 'past']) {
+  for (const form of ['aff', 'neg', 'past', 'negpast']) {
     for (let i = 0; i < N; i++) {
       const it = gen(key, [form]);
       total++;

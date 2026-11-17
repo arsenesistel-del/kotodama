@@ -14,8 +14,13 @@ root.innerHTML = `
   <div class="prompt" hidden><kbd>Espace</kbd><span></span></div>
   <div class="hint" hidden></div>
   <div class="quests" hidden></div>
+  <div class="field" hidden></div>
   <div class="card" hidden><small class="ch"></small><b></b><span class="rd"></span><p></p><em></em></div>`;
 document.body.appendChild(root);
+// La clochette de l'encart du 渡り : la scène écoute cet événement (touche X aussi).
+root.addEventListener('click', (e) => {
+  if ((e.target as HTMLElement).closest('.field .bell')) window.dispatchEvent(new Event('kotodama:bell'));
+});
 
 const $ = <T extends HTMLElement>(s: string) => (root.querySelector(s) ?? card.querySelector(s)) as T;
 
@@ -103,6 +108,17 @@ export function questHud(list: QuestBox[] | QuestBox | null): void {
         .join('')}</ul></div>`;
     })
     .join('');
+}
+
+/** L'encart du 渡り dans les herbes hautes (session 10) : niveau, PV, expérience, clochette, zone. */
+export function fieldHud(f: { lvl: number; hp: number; max: number; xp: number; bell: boolean | null; zone: string } | null): void {
+  const box = $('.field');
+  box.hidden = !f;
+  if (!f) return;
+  const pips = Array.from({ length: f.max }, (_, i) => `<i class="${i < f.hp ? 'on' : ''}"></i>`).join('');
+  box.innerHTML = `<div class="row"><b>渡り</b><span class="lv">Lv ${f.lvl}</span><span class="hp">${pips}</span>${
+    f.bell === null ? '' : `<button class="bell${f.bell ? ' on' : ''}" title="Clochette (X)">鈴<small>${f.bell ? 'ちりん' : 'X'}</small></button>`
+  }</div><div class="xp"><i style="transform:scaleX(${Math.max(0, Math.min(1, f.xp))})"></i></div>${f.zone ? `<em>${f.zone}</em>` : ''}`;
 }
 
 // ---------- carton de chapitre, plein écran ----------
