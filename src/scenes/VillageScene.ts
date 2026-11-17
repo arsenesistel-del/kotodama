@@ -8,7 +8,7 @@ import type { MapDef, NpcDef } from '../world/mapdef';
 import { MAPS } from '../world/maps';
 import { saveWorld, world } from '../world/state';
 import * as UI from '../world/ui';
-import { hooks } from '../world/vn';
+import { hooks, maybeWeekly } from '../world/vn';
 import * as Quests from '../world/quests';
 
 const WALK = 72; // px par seconde
@@ -113,6 +113,9 @@ export class VillageScene extends Phaser.Scene {
       this.busy = true;
       this.time.delayedCall(1700, () => UI.openDialog('arrival', () => (this.busy = false)));
     }
+
+    // Première partie d'une nouvelle semaine : le bilan de la précédente, une fois l'arrivée posée.
+    this.time.delayedCall(2600, () => maybeWeekly());
 
     // Accès de test : window.KDW.go(x, y) téléporte, KDW.state() décrit la scène.
     (window as unknown as { KDW: unknown }).KDW = {

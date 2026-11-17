@@ -3,7 +3,9 @@ import { BootScene } from './scenes/BootScene';
 import { CombatScene } from './scenes/CombatScene';
 import { VillageScene } from './scenes/VillageScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
+import { Mic } from './mic.js';
 import { settings } from './world/prefs';
+import * as Progress from './world/progress';
 import { world } from './world/state';
 import { hooks } from './world/vn';
 
@@ -29,3 +31,9 @@ hooks.load = () => {
   if (active) active.scene.start(target);
   else game.scene.start(target);
 };
+
+// Temps de parole, pour le bilan de la semaine (dialogues et chasses partagent le micro).
+Mic.spoken = (ms: number) => Progress.logSpeech(ms);
+
+// La sauvegarde vit dans le navigateur : on demande à Chrome de ne pas l'effacer pour faire de la place.
+navigator.storage?.persist?.().catch(() => undefined);

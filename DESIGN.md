@@ -144,7 +144,7 @@ La raison dans l'histoire : à chaque chapitre apaisé, ワケ récupère un mor
 
 Elles suivent le joueur, pas le chapitre.
 
-- **Furigana** seulement sur les mots que le jeu croit illisibles pour toi. Au départ, les kanji jusqu'au N3 sont réputés connus. Demander une lecture marque le mot comme inconnu ; le prononcer juste plusieurs fois à voix haute le marque comme acquis, et son furigana disparaît.
+- **Furigana** seulement sur les mots que le jeu croit illisibles pour toi. Au départ, les kanji jusqu'au N3 sont réputés connus. Demander une lecture marque le mot comme inconnu ; le prononcer juste à voix haute sur plusieurs jours fait pâlir son furigana, puis le fait disparaître quand il est acquis. S'il s'oublie, le furigana revient, pâle.
 - **Sens en français au toucher**, tiré de JMdict, sur n'importe quel mot de n'importe quelle réplique.
 - **Réécouter** chaque réplique, et en vitesse lente jusqu'au chapitre 4.
 - Un mot touché souvent revient plus souvent dans les chasses et les dialogues.
@@ -196,6 +196,8 @@ Chaque type de personnage parle d'une façon reconnaissable, et chaque région e
 Un contrat fait travailler, dans l'ordre, l'écoute, la compréhension, la production rapide et le discours rapporté. La chasse existe déjà ; le reste est à construire autour.
 
 Village → Enquête → Chasse → Retour → contrat suivant. Sous le capot, un suivi caché façon FSRS : chaque mot et chaque structure a sa courbe d'oubli, et le jeu choisit répliques, combats et butin selon l'échéance.
+
+*Mis en œuvre (session 7)* : FSRS-5 sur chaque mot et chaque structure. Un mot est acquis à 10 jours de stabilité, une structure à 14. Les chasses choisissent structures et mots selon l'échéance ; les dialogues, écrits à l'avance, ne changent pas. Le butin ne dépend pas encore de l'échéance. Bilan de la semaine dans メニュー → 記録.
 
 **Village**
 
@@ -328,7 +330,7 @@ Ce document fixe la direction d'ensemble et le chapitre 1. Le reste du brainstor
 - Les 式神 : sceller une créature apaisée pour en faire un familier.
 - 深淵, le mode sans fin : trois fautes et la partie s'arrête.
 - Le niveau libre, jugé par un LLM, coût à valider avec toi.
-- Les 72 micro-saisons, les versions renforcées des créatures, le bilan de la semaine.
+- Les 72 micro-saisons, les versions renforcées des créatures. (Le bilan de la semaine est fait, session 7.)
 - Envoyer un mot vers Anki d'un toucher.
 
 **Décisions prises par défaut**

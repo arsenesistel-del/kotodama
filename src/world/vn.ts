@@ -16,6 +16,8 @@ import { LEX, MARKERS, MARKER_WHO } from './lexicon';
 import { MAPS } from './maps';
 import { placeById } from './places';
 import * as P from './prefs';
+import * as Progress from './progress';
+import * as Record from './record';
 import { replaceWorld, saveWorld, world, type WorldSave } from './state';
 import { entryOf, parse, plain, tokenize, type Token } from './text';
 
@@ -79,6 +81,7 @@ root.innerHTML = `
       <button data-a="save">セーブ<small>sauvegarder</small></button>
       <button data-a="load">ロード<small>charger</small></button>
       <button data-a="log">バックログ<small>historique</small></button>
+      <button data-a="record">記録<small>bilan de la semaine</small></button>
       <button data-a="config">設定<small>réglages</small></button>
       <button data-a="close">閉じる<small>reprendre</small></button>
     </div>
@@ -92,11 +95,17 @@ root.innerHTML = `
     <header><h2></h2><button class="x" data-a="close">✕</button></header>
     <div class="slots"></div>
   </section>
+  <section class="vp p-record" hidden>
+    <header><h2>記録</h2><button class="nav" data-a="recprev" title="Semaine précédente">‹</button><button class="nav" data-a="recnext" title="Semaine suivante">›</button><button class="x" data-a="close">✕</button></header>
+    <div class="rec"></div>
+    <footer>Le jeu suit chaque mot et chaque structure que tu dis. L’aide d’un mot s’efface quand il est acquis, et revient s’il s’oublie.</footer>
+  </section>
   <section class="vp p-config" hidden>
     <header><h2>設定</h2><button class="x" data-a="close">✕</button></header>
     <div class="config"></div>
   </section>
-  <div class="toast" hidden></div>`;
+  <div class="toast" hidden></div>
+  <input class="restore" type="file" accept=".json,application/json" hidden>`;
 document.body.appendChild(root);
 
 const $ = <T extends HTMLElement>(s: string) => root.querySelector(s) as T;
@@ -131,11 +140,12 @@ function renderTokens(tokens: Token[], lineId: string, limit = Infinity, peek = 
       return;
     }
     const ruby = P.wantsRuby(t, peek);
+    const fade = ruby && !peek && P.fadedRuby(t);
     const e = entryOf(t);
     let inner = '';
     for (const s of t.segs) {
       if (n >= limit) break;
-      inner += s.ruby && ruby ? `<ruby>${esc(s.base)}<rt>${esc(s.ruby)}</rt></ruby>` : esc(s.base);
+      inner += s.ruby && ruby ? `<ruby${fade ? ' class="fade"' : ''}>${esc(s.base)}<rt>${esc(s.ruby)}</rt></ruby>` : esc(s.base);
       n += s.base.length;
     }
     html += `<span class="w${e?.marker ? ' mk' : ''}" data-l="${esc(lineId)}" data-i="${i}">${inner}</span>`;
@@ -469,12 +479,17 @@ function onHeard(h: { fin: string; inter: string; cands: string[]; settled: bool
   const v = judge(ans.targets, h.cands);
   if (v?.ok) return success(v.choice);
   if (!h.settled) return;
+  if (v && !v.ok) {
+    // Faute de jointure reconnue : la structure de cette phrase est ratée.
+    for (const id of Progress.structuresOf(ans.texts[v.choice])) Progress.review(id, 1);
+  }
   miss(v && !v.ok ? v.msg : 'Je n’ai pas reconnu la phrase. Redis-la en entier.');
 }
 
 function miss(msg: string): void {
   if (!ans) return;
   ans.tries++;
+  Progress.logSentence(false);
   sfx('miss');
   $('.verdict').textContent = msg;
   const box = $('.dlg');
@@ -501,8 +516,14 @@ function success(choice: number, passed = false): void {
   if (w.log.length > 120) w.log.splice(0, w.log.length - 120);
   w.read[lineId()] = 1;
   saveWorld();
-  const got = P.noteSaid(tokensOf(ans.texts[choice]));
-  if (got.length) toast(`覚えた <small>acquis : ${got.map((t) => esc(t.text)).join('、')}</small>`);
+  // Passée sans être dite : rien n'est compté.
+  if (!passed) {
+    Progress.logSentence(true);
+    const got = P.noteSaid(tokensOf(ans.texts[choice]));
+    const types = Progress.structuresOf(ans.texts[choice]).filter((id) => Progress.review(id, 3));
+    if (types.length) toast(`型を覚えた <small>structure acquise : ${types.map((id) => esc(Progress.label(id))).join('、')}</small>`);
+    else if (got.length) toast(`覚えた <small>acquis : ${got.map((t) => esc(t.text)).join('、')}</small>`);
+  }
   // Seule la phrase dite reste affichée.
   if (l.choices) {
     tokens = tokensOf(ans.texts[choice]);
@@ -670,7 +691,7 @@ function refreshText(): void {
 
 // ---------- panneaux ----------
 
-type Panel = 'menu' | 'log' | 'slots' | 'config';
+type Panel = 'menu' | 'log' | 'slots' | 'config' | 'record';
 let panel: Panel | null = null;
 export const panelOpen = () => panel !== null;
 
@@ -825,12 +846,15 @@ function renderConfig(): void {
     row('ワケの訳', 'la traduction de ワケ', 'translate', [['tap', 'タップで'], ['always', 'いつも']], S.translate),
     `<div class="row"><label>音量<small>volume général</small></label><input type="range" min="0" max="100" value="${Math.round(S.volume * 100)}" data-k="volume"></div>`,
     `<div class="row"><label>ボイス<small>volume des voix</small></label><input type="range" min="0" max="100" value="${Math.round(S.voice * 100)}" data-k="voice"></div>`,
-    `<div class="row"><label>単語<small>mots dont tu as demandé la lecture : ${st.asked} · furigana masqué : ${st.hidden}</small></label><div class="seg"><button data-k="reset" data-v="1"${armedReset ? ' class="on"' : ''}>${armedReset ? '本当に？' : 'リセット'}</button></div></div>`,
+    `<div class="row"><label>記録<small>toute la partie dans un fichier : monde, mots, progression, combat, réglages</small></label><div class="seg"><button data-k="backup" data-v="1">書き出す</button><button data-k="restore" data-v="1">読み込む</button></div></div>`,
+    `<div class="row"><label>単語<small>mots suivis en cours : ${st.asked} · acquis, sans furigana : ${st.hidden}</small></label><div class="seg"><button data-k="reset" data-v="1"${armedReset ? ' class="on"' : ''}>${armedReset ? '本当に？' : 'リセット'}</button></div></div>`,
   ].join('');
 }
 let armedReset = false;
 function setConfig(k: string, v: string): void {
   const S = P.settings as unknown as Record<string, unknown>;
+  if (k === 'backup') return downloadBackup();
+  if (k === 'restore') return $<HTMLInputElement>('.restore').click();
   if (k === 'reset') {
     if (!armedReset) armedReset = true;
     else {
@@ -846,6 +870,45 @@ function setConfig(k: string, v: string): void {
   renderConfig();
   refreshText();
 }
+
+// 記録 : le bilan de la semaine.
+let recBack = 0;
+function openRecord(back: number): void {
+  recBack = Math.max(0, Math.min(Progress.weeksBack(), back));
+  if (panel !== 'record') openPanel('record');
+  $('.rec').innerHTML = Record.render(recBack);
+  $('.p-record [data-a="recnext"]').toggleAttribute('disabled', recBack === 0);
+  $('.p-record [data-a="recprev"]').toggleAttribute('disabled', recBack >= Progress.weeksBack());
+  $('.rec').scrollTop = 0;
+}
+
+/** Première partie d'une semaine : le bilan de la précédente s'ouvre tout seul (si rien d'autre n'est ouvert). */
+export function maybeWeekly(): void {
+  if (root.hidden || dialogOpen() || panelOpen()) return;
+  if (Progress.weeklyDue()) openRecord(1);
+}
+
+// Sauvegarde complète : un fichier JSON à garder, et à recharger sur un autre navigateur.
+function downloadBackup(): void {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([Progress.backup()], { type: 'application/json' }));
+  a.download = `kotodama-${Progress.dayOf()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast('書き出しました <small>sauvegarde téléchargée</small>');
+}
+$<HTMLInputElement>('.restore').addEventListener('change', async (e) => {
+  const input = e.target as HTMLInputElement;
+  const f = input.files?.[0];
+  input.value = '';
+  if (!f) return;
+  const err = Progress.restore(await f.text());
+  if (err) return toast(`読み込めません <small>${esc(err)}</small>`);
+  toast('読み込みました <small>partie chargée, redémarrage…</small>');
+  setTimeout(() => location.reload(), 900);
+});
 
 // ---------- petits messages ----------
 
@@ -876,6 +939,9 @@ function act(a: string): void {
   else if (a === 'pass') pass();
   else if (a === 'skip') setSkip(!skip);
   else if (a === 'log') openLog();
+  else if (a === 'record') openRecord(0);
+  else if (a === 'recprev') openRecord(recBack + 1);
+  else if (a === 'recnext') openRecord(recBack - 1);
   else if (a === 'config') {
     armedReset = false;
     openPanel('config');
@@ -890,7 +956,7 @@ function act(a: string): void {
 
 root.addEventListener('click', (e) => {
   const el = e.target as HTMLElement;
-  const lv = el.closest<HTMLElement>('[data-v]');
+  const lv = el.closest<HTMLElement>('.lv[data-v]');
   if (lv) {
     e.stopPropagation();
     return void Voice.play(lv.dataset.v!);
@@ -1014,4 +1080,6 @@ window.addEventListener('blur', () => setCtrlSkip(false));
   open: (id: string) => openDialog(id),
   settings: P.settings,
   lex: LEX,
+  record: (back = 0) => openRecord(back),
+  progress: Progress,
 };

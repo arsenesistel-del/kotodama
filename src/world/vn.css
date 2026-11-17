@@ -417,3 +417,76 @@
 #vn .dlg.echo .text{color:#e8806e;letter-spacing:.08em;animation:echo 2.4s ease-in-out infinite}
 #vn .dlg.echo .name{color:#d4412b}
 @keyframes echo{0%,100%{text-shadow:0 0 0 transparent;transform:none}50%{text-shadow:2px 0 6px rgba(212,65,43,.6),-2px 0 6px rgba(160,180,190,.35);transform:translateX(1px)}}
+
+/* ---------- aides qui s'effacent : furigana pâle d'un mot qui s'installe, ou qui s'oublie ---------- */
+#vn ruby.fade rt { opacity: 0.38; }
+
+/* ---------- 記録 : le bilan de la semaine ---------- */
+#vn .p-record { width: min(820px, calc(100vw - 40px)); height: min(760px, calc(100vh - 50px)); }
+#vn .vp .nav { font-size: 22px; width: 30px; height: 30px; color: var(--dim); border: 1px solid var(--line); line-height: 1; }
+#vn .vp .nav:hover:not([disabled]) { color: var(--bone); border-color: rgba(212, 65, 43, 0.6); }
+#vn .vp .nav[disabled] { opacity: 0.25; cursor: default; }
+#vn .rec { flex: 1; overflow-y: auto; padding: 12px 22px 18px; scrollbar-color: rgba(236, 230, 218, 0.25) transparent; }
+#vn .rec .wk { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+#vn .rec .wk b { font-size: 17px; font-weight: 500; }
+#vn .rec .wk span { font-size: 13px; color: rgba(236, 230, 218, 0.5); }
+#vn .rec .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+#vn .rec .tile { position: relative; padding: 12px 14px 12px; border: 1px solid rgba(236, 230, 218, 0.12); background: rgba(236, 230, 218, 0.025); display: flex; flex-direction: column; gap: 2px; }
+#vn .rec .tile > small:first-child { position: absolute; top: 8px; right: 10px; font-family: 'Yuji Syuku', serif; font-size: 15px; color: rgba(212, 65, 43, 0.85); }
+#vn .rec .tile b { font-family: 'DotGothic16', monospace; font-weight: 400; font-size: 38px; line-height: 1.1; letter-spacing: 0.02em; }
+#vn .rec .tile b u { text-decoration: none; font-size: 15px; margin-left: 4px; color: var(--dim); }
+#vn .rec .tile span { font-size: 13px; color: rgba(236, 230, 218, 0.78); }
+#vn .rec .tile small { font-size: 11.5px; color: rgba(236, 230, 218, 0.45); }
+#vn .rec .tile small.up { color: #e0806b; }
+#vn .rec h3 { margin: 22px 0 10px; font-family: 'DotGothic16', monospace; font-weight: 400; font-size: 17px; letter-spacing: 0.1em; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+#vn .rec h3 small { font-family: 'Zen Kaku Gothic New', sans-serif; font-size: 12px; letter-spacing: 0; color: rgba(236, 230, 218, 0.45); }
+#vn .rec .mbars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; height: 130px; align-items: end; border-bottom: 1px solid rgba(236, 230, 218, 0.25); padding: 0 4px; }
+#vn .rec .day { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+#vn .rec .day .col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; width: 100%; }
+#vn .rec .day i { display: block; width: min(34px, 60%); background: rgba(236, 230, 218, 0.55); border-radius: 4px 4px 0 0; }
+#vn .rec .day.today i { background: var(--red); }
+#vn .rec .day em { font-style: normal; font-family: 'DotGothic16', monospace; font-size: 13px; color: var(--bone); margin-bottom: 4px; }
+#vn .rec .day b { position: absolute; bottom: -24px; font-family: 'DotGothic16', monospace; font-weight: 400; font-size: 13px; color: rgba(236, 230, 218, 0.55); }
+#vn .rec .day.today b { color: #e0806b; }
+#vn .rec .day.future b { opacity: 0.35; }
+#vn .rec .mbars + h3 { margin-top: 36px; }
+#vn .rec [data-tip] { cursor: default; }
+#vn .rec [data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--bone);
+  background: #0c0b0b;
+  border: 1px solid rgba(236, 230, 218, 0.25);
+  border-left: 2px solid var(--red);
+  pointer-events: none;
+}
+#vn .rec .sgrid { width: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
+#vn .rec .sgrid thead th:first-child { width: 150px; }
+#vn .rec .sgrid th { font-family: 'DotGothic16', monospace; font-weight: 400; font-size: 13px; color: rgba(236, 230, 218, 0.6); padding: 2px 6px; }
+#vn .rec .sgrid tbody th { text-align: right; white-space: nowrap; }
+#vn .rec .sgrid td { position: relative; height: 34px; text-align: center; border: 1px solid rgba(236, 230, 218, 0.1); background: rgba(236, 230, 218, 0.02); }
+#vn .rec .sgrid td span { font-family: 'Yuji Syuku', serif; font-size: 17px; color: rgba(236, 230, 218, 0.25); }
+#vn .rec .sgrid td i { position: absolute; left: 0; bottom: 0; height: 3px; background: rgba(236, 230, 218, 0.6); }
+#vn .rec .sgrid td.learn span { color: rgba(236, 230, 218, 0.8); }
+#vn .rec .sgrid td.acq { border-color: rgba(212, 65, 43, 0.55); background: rgba(212, 65, 43, 0.1); }
+#vn .rec .sgrid td.acq span { color: #e0806b; }
+#vn .rec .sgrid td.acq i { background: var(--red); }
+#vn .rec .sgrid td.slip span { color: rgba(224, 128, 107, 0.6); }
+#vn .rec .sgrid td.due::before { content: '↺'; position: absolute; top: 1px; right: 4px; font-size: 10px; color: rgba(236, 230, 218, 0.5); }
+#vn .rec .sgrid td.void { border: 0; background: none; }
+#vn .rec .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+#vn .rec .chip { font-family: 'DotGothic16', monospace; font-size: 14px; padding: 3px 10px; border: 1px solid rgba(236, 230, 218, 0.2); }
+#vn .rec .chip.s { border-color: rgba(212, 65, 43, 0.5); color: #f1d6cd; }
+#vn .rec .empty { margin-top: 18px; color: var(--dim); font-size: 14px; }
+@media (max-width: 720px) {
+  #vn .rec .tiles { grid-template-columns: repeat(2, 1fr); }
+}

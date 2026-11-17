@@ -1,12 +1,14 @@
 /* ===== 言霊 : le micro, partagé par le combat et les dialogues =====
    Web Speech API de Chrome (ja-JP), une seule session continue pour tout le jeu : Chrome ne redemande pas la
    permission, et l'écoute ne se coupe pas entre deux scènes. Chaque phrase ne lit que ce qui est dit après son départ
-   (`arm`). `listen` abonne une fonction aux changements d'état (ouvert, coupé, refusé). */
+   (`arm`). `listen` abonne une fonction aux changements d'état (ouvert, coupé, refusé).
+   Temps de parole (bilan de la semaine) : de la première à la dernière transcription d'une phrase, plus le délai
+   de la reconnaissance ; rendu à `spoken` quand la phrase est jugée (`arm` suivant ou `disarm`). */
 import { norm } from './combat/engine.js';
 
 export const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 export const Mic = {
-  rec: null, subs: [], want: false, live: false, base: 0, len: 0, pending: false, pIdx: -1, pLen: 0, carryIdx: -1, carryLen: 0, handler: null, denied: false, restarts: 0,
+  rec: null, subs: [], want: false, live: false, base: 0, len: 0, pending: false, pIdx: -1, pLen: 0, carryIdx: -1, carryLen: 0, handler: null, denied: false, restarts: 0, segA: 0, segB: 0, spoken: /** @type {null | ((ms: number) => void)} */ (null),
   start() {
     if (!SR) return false; if (this.rec) return true;
     const r = this.rec = new SR(); r.lang = 'ja-JP'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 5;
@@ -24,16 +26,18 @@ export const Mic = {
         else inter += cut(x[0].transcript);
       }
       this.pending = pIdx >= 0; this.pIdx = pIdx; this.pLen = pLen; if (!this.handler) return;
+      if (fins.length || inter) { const t = performance.now(); if (!this.segA) this.segA = t; this.segB = t; }
       const fin = fins.map(a => a[0]).join(''), cands = [fin + inter];
       fins.forEach((alts, i) => alts.slice(1).forEach(a => cands.push(fins.map((b, k) => k === i ? a : b[0]).join('') + inter)));
       this.handler({ fin, inter, cands, settled: !!fin && !inter });
     };
     this.want = true; try { r.start(); } catch (e) { } return true;
   },
-  arm(h) { if (this.pending && this.pIdx >= 0) { this.base = this.pIdx; this.carryIdx = this.pIdx; this.carryLen = this.pLen; } else { this.base = this.len; this.carryIdx = -1; } this.handler = h; },
-  disarm() { this.handler = null; },
+  commit() { if (this.segA && this.spoken) { try { this.spoken(Math.min(20000, this.segB - this.segA + 700)); } catch (e) { } } this.segA = this.segB = 0; },
+  arm(h) { this.commit(); if (this.pending && this.pIdx >= 0) { this.base = this.pIdx; this.carryIdx = this.pIdx; this.carryLen = this.pLen; } else { this.base = this.len; this.carryIdx = -1; } this.handler = h; },
+  disarm() { this.commit(); this.handler = null; },
   flush() { if (this.rec && this.live) { try { this.rec.abort(); } catch (e) { } } },
   listen(f) { this.subs.push(f); },
   emit() { for (const f of this.subs) { try { f(); } catch (e) { } } },
-  inject(text) { if (this.handler) this.handler({ fin: text, inter: '', cands: [text], settled: true }); }
+  inject(text) { if (!this.handler) return; const t = performance.now(); this.segA = t - norm(text).length * 160; this.segB = t; if (this.handler) this.handler({ fin: text, inter: '', cands: [text], settled: true }); }
 };

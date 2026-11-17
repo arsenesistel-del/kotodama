@@ -4,6 +4,8 @@ import { STAGES, CONTRACT_STAGES, nextItem, matches, diagnose, norm, med, status
 import { S, Scene, Snd, resize } from './scene.js';
 import { Mic, SR } from '../mic.js';
 import * as Voice from '../world/voice';
+import * as Progress from '../world/progress';
+import { setBias } from './engine.js';
 const $ = s => document.querySelector(s);
 const DEBUG = /debug/.test(location.hash + location.search);
 const SAVE_KEY = 'kotodama.v1', FAST = 3500, MAXHP = 5;
@@ -15,7 +17,7 @@ const today = () => new Date().toLocaleDateString('sv-SE');
 function micUi() { const el = $('#mic'); if (!el) return; el.textContent = Mic.denied ? 'micro refusé' : Mic.live ? 'micro ouvert' : DEBUG ? 'mode texte' : 'micro coupé'; el.className = Mic.live ? 'on' : 'off'; if (!$('#hub').hidden) hub(); }
 
 /* ---------- chasse ---------- */
-const H = { stage: null, mhp: 0, php: MAXHP, item: null, phase: 'idle', combo: 0, best: 0, log: [], t0: 0, tFirst: null, heard: '', deadline: 0, dur: 0, lastSpeech: 0, tries: 0, timers: [], voids: 0, stance: 0, stag: false, raged: false, kind: 'kiri', recent: [] };
+const H = { stage: null, mhp: 0, php: MAXHP, item: null, phase: 'idle', combo: 0, best: 0, log: [], t0: 0, tFirst: null, heard: '', deadline: 0, dur: 0, lastSpeech: 0, tries: 0, timers: [], voids: 0, stance: 0, stag: false, raged: false, kind: 'kiri', recent: [], acq: [] };
 const later = (f, ms) => { const t = setTimeout(f, ms); H.timers.push(t); return t; };
 function clearTimers() { H.timers.forEach(clearTimeout); H.timers = []; }
 function show(id) { for (const s of ['title', 'hub', 'hunt', 'result']) $('#' + s).hidden = s !== id; S.hunt = id === 'hunt'; S.title = id === 'title'; }
@@ -27,10 +29,13 @@ function go(fn) { // rideau d'encre entre deux écrans
   setTimeout(() => { fn(); w.className = 'out'; setTimeout(() => { w.className = ''; wiping = false; }, 350); }, 310);
 }
 function flashBanner(txt, cls, ms) { const b = $('#banner'); b.innerHTML = '<b>' + txt + '</b>'; b.className = 'banner in flash ' + (cls || ''); later(() => { b.className = 'banner'; }, ms); }
-const rb = (k, r) => /[一-鿿]/.test(k) ? '<ruby>' + k + '<rt>' + r + '</rt></ruby>' : k;
+const rb = (k, r, cls) => /[一-鿿]/.test(k) ? '<ruby' + (cls ? ' class="' + cls + '"' : '') + '>' + k + '<rt>' + r + '</rt></ruby>' : k;
+// Suivi caché : un mot dont il a demandé la lecture garde son furigana (pâle quand il s'installe) jusqu'à être acquis.
+function aidCls(word) { if (save.read !== 'ask') return ''; const id = Progress.huntWordId(word), c = Progress.card(id); if (!c || !c.l) return ''; const a = Progress.aid(id); return a === 'full' ? 'aid' : a === 'fade' ? 'aid fade' : ''; }
+const huntWords = it => [Progress.huntWordId(it.cue.a), Progress.huntWordId(it.cue.b)];
 
 function startHunt(stage) {
-  clearTimers(); Object.assign(H, { stage, mhp: stage.hp, php: MAXHP, item: null, phase: 'intro', combo: 0, best: 0, log: [], voids: 0, started: Date.now(), stance: 0, stag: false, raged: false, kind: 'kiri', recent: [] });
+  clearTimers(); Object.assign(H, { stage, mhp: stage.hp, php: MAXHP, item: null, phase: 'intro', combo: 0, best: 0, log: [], voids: 0, started: Date.now(), stance: 0, stag: false, raged: false, kind: 'kiri', recent: [], acq: [] });
   Scene.setMonster(stage); show('hunt'); hud(); $('#readhint').hidden = true; $('#hunt').classList.add('cine');
   $('#cue').innerHTML = ''; $('#cue').hidden = true; $('#heard').textContent = ''; $('#fb').className = 'fb'; $('#fb').innerHTML = ''; $('#fb').hidden = true; $('#acts').hidden = true; $('#tbar').style.transform = 'scaleX(0)';
   const b = $('#banner'); b.innerHTML = '<b>' + stage.name + '</b><div class="sub"><span>' + stage.fr + '</span><em>' + stage.hint + '</em>' + (C && C.bonus ? '<em class="edge">刃 · ta lame porte la bonne fin : dégâts ×1,5, 崩 plus rapide</em>' : '') + '</div>'; b.className = 'banner in';
@@ -51,8 +56,9 @@ function present() {
   H.kind = H.stag ? 'ougi' : it.broken && Math.random() < pH ? 'harae' : 'kiri';
   H.dur = H.stage.timer * 1000 * (H.raged ? 0.85 : 1) * (H.kind === 'ougi' ? 1.2 : 1);
   let html = '<span class="kind">' + KINDS[H.kind] + '</span>';
-  if (H.kind === 'harae') { const b = it.broken; html += '<div class="broken">' + rb(b.a, b.ar) + 'は' + rb(b.w, b.wr) + b.tail + rb(b.fk, b.fr) + '</div><div class="note">Phrase déformée. Redis-la juste.</div>'; }
-  else html += '<div class="pair"><span>' + rb(c.a, c.ar) + '</span><i>／</i><span>' + rb(c.b, c.br) + '</span></div><div class="chips">' + (c.form ? '<em class="form">' + c.form + '</em>' : '') + '<em>' + c.frame + '</em></div>' + (H.kind === 'ougi' ? '<div class="note">Elle vacille. Dégâts triplés.</div>' : '');
+  const ca = aidCls(c.a), cb = aidCls(c.b);
+  if (H.kind === 'harae') { const b = it.broken; html += '<div class="broken">' + rb(b.a, b.ar, ca) + 'は' + rb(b.w, b.wr, cb) + b.tail + rb(b.fk, b.fr) + '</div><div class="note">Phrase déformée. Redis-la juste.</div>'; }
+  else html += '<div class="pair"><span>' + rb(c.a, c.ar, ca) + '</span><i>／</i><span>' + rb(c.b, c.br, cb) + '</span></div><div class="chips">' + (c.form ? '<em class="form">' + c.form + '</em>' : '') + '<em>' + c.frame + '</em></div>' + (H.kind === 'ougi' ? '<div class="note">Elle vacille. Dégâts triplés.</div>' : '');
   $('#cue').innerHTML = html;
   $('#cue').className = 'cue pop ' + H.kind + (save.read === 'always' ? ' showread' : ''); $('#cue').hidden = false; $('#readhint').hidden = save.read !== 'ask'; $('#heard').textContent = ''; $('#fb').className = 'fb'; $('#fb').innerHTML = ''; $('#fb').hidden = true; $('#acts').hidden = true;
   H.phase = 'cue'; H.t0 = performance.now(); H.tFirst = null; H.heard = ''; H.lastSpeech = 0; H.deadline = H.t0 + H.dur;
@@ -85,6 +91,12 @@ function record(ok, t) {
   const st = save.stats[H.item.key] || (save.stats[H.item.key] = { n: 0, h: [] });
   st.n++; st.h.push({ ok, t: Math.round(t || 0) }); if (st.h.length > 12) st.h.shift();
   save.total++; save.days[today()] = (save.days[today()] || 0) + 1;
+  // Suivi caché : la structure (juste et rapide, juste, juste mais lente, ratée) et les deux mots.
+  Progress.logSentence(ok);
+  const got = [];
+  if (Progress.review('s:' + H.item.key, ok ? (t <= FAST ? 4 : t > 9000 ? 2 : 3) : 1)) got.push('s:' + H.item.key);
+  if (H.item.read || ok) for (const id of huntWords(H.item)) if (Progress.review(id, H.item.read ? 1 : 3) && Progress.card(id).l > 0) got.push(id);
+  for (const id of got) if (!H.acq.includes(id)) H.acq.push(id);
 }
 function success() {
   clearTimers(); Mic.disarm(); Scene.clearTele(); const now = performance.now(), start = H.tFirst, total = now - H.t0, crit = start <= FAST, ougi = H.kind === 'ougi', harae = H.kind === 'harae';
@@ -121,10 +133,10 @@ function fail(why) {
   later(() => { H.phase = 'riposte'; H.tries = 0; H.heard = ''; $('#heard').textContent = ''; $('#acts').hidden = false; $('#void').hidden = !heard; Mic.arm(onSpeech); }, 900);
 }
 function riposteOk() {
-  clearTimers(); Mic.disarm(); H.phase = 'fb'; H.mhp = Math.max(1, H.mhp - 6); H.stance = Math.min(99, H.stance + 8); Scene.slash(0, 6, '立直'); Snd.slash(false); hud();
+  clearTimers(); Progress.logSentence(true); Mic.disarm(); H.phase = 'fb'; H.mhp = Math.max(1, H.mhp - 6); H.stance = Math.min(99, H.stance + 8); Scene.slash(0, 6, '立直'); Snd.slash(false); hud();
   $('#fb').className = 'fb redo'; $('#acts').hidden = true; later(nextExchange, 1000);
 }
-function riposteMiss() { H.tries++; Snd.miss(); $('#fb').classList.add('shake'); later(() => $('#fb').classList.remove('shake'), 400); H.heard = ''; Mic.arm(onSpeech); if (H.tries >= 3) { $('#acts').hidden = true; later(nextExchange, 600); } }
+function riposteMiss() { H.tries++; Progress.logSentence(false); Snd.miss(); $('#fb').classList.add('shake'); later(() => $('#fb').classList.remove('shake'), 400); H.heard = ''; Mic.arm(onSpeech); if (H.tries >= 3) { $('#acts').hidden = true; later(nextExchange, 600); } }
 function voidLast() { // le micro a mal entendu : le coup est annulé
   if (H.phase !== 'riposte') return; clearTimers(); Mic.disarm();
   const l = H.log.pop(), st = save.stats[l.key]; if (st && st.h.length) { st.n--; st.h.pop(); save.total--; }
@@ -137,7 +149,7 @@ function victory() {
   const s = save.stages[H.stage.id] || (save.stages[H.stage.id] = { clears: 0, best: '' }); const first = !s.clears; s.clears++;
   if (!s.best || RANKS.indexOf(rank) > RANKS.indexOf(s.best)) s.best = rank;
   const fid = H.stage.art || H.stage.id, gain = FRAG[rank] + (C && C.bonus ? 1 : 0); H.gain = gain; H.won = true; H.rank = rank;
-  save.frags[fid] = (save.frags[fid] || 0) + gain; persist();
+  save.frags[fid] = (save.frags[fid] || 0) + gain; persist(); Progress.logHunt(true);
   if (!C) return later(() => go(() => result(true, rank, first)), 2700);
   // Contrat : apaisée, la créature dit enfin sa phrase entière, avec la voix de celui qui l'avait laissée en suspens.
   later(() => {
@@ -147,7 +159,7 @@ function victory() {
   }, 1900);
   later(() => { $('#banner').className = 'banner'; go(() => result(true, rank, first)); }, 8400);
 }
-function defeat() { clearTimers(); H.won = false; H.rank = ''; H.phase = 'end'; Mic.disarm(); Scene.playerDown(); Snd.lose(); persist(); $('#hunt').classList.add('cine'); later(() => go(() => result(false, '', false)), 1500); }
+function defeat() { clearTimers(); Progress.logHunt(false); H.won = false; H.rank = ''; H.phase = 'end'; Mic.disarm(); Scene.playerDown(); Snd.lose(); persist(); $('#hunt').classList.add('cine'); later(() => go(() => result(false, '', false)), 1500); }
 function quitHunt() { if (H.phase === 'idle' || H.phase === 'end') return; clearTimers(); H.phase = 'idle'; Mic.disarm(); persist(); if (C) return leave(false, ''); go(() => { Scene.setMonster(null); hub(); }); }
 // Fin d'une chasse de contrat : retour au village, qui jouera le souvenir ou la remarque de ワケ.
 function leave(won, rank) { clearTimers(); Mic.disarm(); Voice.stop(); C = null; Scene.setMonster(null); show('none'); window.dispatchEvent(new CustomEvent('kotodama:village', { detail: { won, rank } })); }
@@ -167,6 +179,7 @@ function result(won, rank, first) {
   const idx = STAGES.indexOf(H.stage), nx = STAGES[idx + 1];
   const fid = H.stage.art || H.stage.id;
   $('#rfrag').textContent = won ? '欠片 +' + H.gain + (C && C.bonus ? ' (dont 1 pour la bonne déduction)' : '') + ' · fragments de ' + H.stage.name + ' : ' + save.frags[fid] + '. Ils serviront à la forge.' : '';
+  $('#racq').innerHTML = H.acq.length ? '<b>' + (H.acq.some(id => id.startsWith('s:')) ? '型を覚えた' : '覚えた') + '</b>' + H.acq.map(id => '<span>' + Progress.label(id) + '</span>').join('') : '';
   $('#runlock').textContent = C ? (won ? C.back : 'Sa phrase n\'a pas bougé. Rechasse, ou reviens plus tard.') : won && first && nx ? 'Nouvelle distorsion repérée : ' + nx.name + ' (' + nx.fr + ').' : won && first ? 'Toutes les distorsions du sabre de l\'avis sont tombées une fois. Vise le rang S.' : '';
   $('#again').hidden = !!C && won; $('#back').textContent = C ? '村へ戻る · retour au village' : 'Retour au repaire';
   $('#rfails').innerHTML = fails.length ? fails.map(l => '<li><b>' + l.canon + '</b><span>' + l.kana + '</span><small>' + (l.diag || 'Phrase différente de l\'attendu.') + (l.heard ? ' Entendu : ' + l.heard : '') + '</small></li>').join('') : '<li class="none">Aucune phrase ratée.</li>';
@@ -221,6 +234,12 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) hidde
 if (DEBUG) { const d = $('#dbg'); d.hidden = false; d.addEventListener('keydown', e => { if (e.key === 'Enter') { Mic.inject(d.value); d.value = ''; } e.stopPropagation(); }); }
 window.KD = { H, Mic, S, save: () => save, say: t => Mic.inject(t), answer: () => Mic.inject(H.item.canon), wrong: () => Mic.inject(H.item.broken.text) };
 
-load(); if (!save.frags) save.frags = {}; resize(); Mic.listen(micUi); micUi();
+load(); if (!save.frags) save.frags = {};
+// Reprise des anciennes chasses dans le suivi caché (une fois), puis le choix des phrases selon l'échéance.
+Progress.migrate('combat', at => { for (const k in save.stats) for (const x of save.stats[k].h || []) Progress.review('s:' + k, x.ok ? (x.t <= FAST ? 4 : 3) : 1, { at, quiet: true }); });
+setBias({
+  key: k => { const s = Progress.status('s:' + k); return s.status === 'new' ? 1.3 : s.due ? 1.8 : s.status === 'acquired' ? 0.6 : 1.1; },
+  entry: (e, type) => { let w = 1; for (const word of [e[0][0], type === 'ia' ? e[1][0] + 'い' : e[1][0]]) { const id = Progress.huntWordId(word), c = Progress.card(id); if (c && c.l > 0) w += (Progress.aid(id) === 'off' ? 0 : 2) + (Progress.status(id).due ? 1 : 0); } return w; }
+}); resize(); Mic.listen(micUi); micUi();
 let lastT = performance.now();
 (function loop(now) { const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; Scene.frame(dt); tick(); requestAnimationFrame(loop); })(performance.now());
