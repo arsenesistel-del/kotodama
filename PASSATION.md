@@ -25,7 +25,7 @@ Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ### Session 6 : la boucle complète
 
-Branche `session-6-boucle`, PR #5. Les sessions 2 à 5 sont fusionnées dans `main`.
+Branche `session-6-boucle`, PR #5, fusionnée dans `main` et en ligne.
 
 - **Trois contrats jouables de bout en bout**, dans l'ordre du DESIGN : 水車小屋の影 (太一, と思う, créature 欠けの影), 峠の噂 (おみつ, そうだ, 揺らぎ), 吊り橋 (萬作, かもしれない, 崩れ). Chacun s'ouvre quand le précédent est rapporté. Définitions dans `src/world/quests.ts`, répliques dans `src/world/quest-lines.ts`.
 - **Don** : le PNJ demande de l'aide (si on ne l'a jamais rencontré, sa première rencontre passe avant). Le joueur répond à voix haute, comme partout. Un sceau 依 et le titre calligraphié s'affichent.
@@ -35,7 +35,7 @@ Branche `session-6-boucle`, PR #5. Les sessions 2 à 5 sont fusionnées dans `ma
 - **Souvenir** : au retour, deux à quatre répliques doublées sur une peinture à l'encre plein écran (sceau 記憶) : 源造 et 太一 au moulin, 与平 au col dans la brume, 萬作 jeune et お露 au pont. Puis ワケ dit si la déduction était juste, et sinon pourquoi.
 - **Retour** : le joueur rapporte à voix haute avec 「…」と言っていました. Le PNJ reparle avec la fin retrouvée (太一 : なれると思う ; おみつ : 元気にしているそうよ ; 萬作 : 間に合うかもしれん). 縁 +1 (toast), sceau 了. Ensuite sa réplique ordinaire change (`c1:after`… : la roue tourne, おみつ colporte une rumeur sur 権兵衛, 萬作 soupçonne la colline). La roue du moulin tourne une fois le premier contrat fini.
 - **Encart du contrat** en haut à gauche : titre, témoins cochés, étape en cours. Marqueurs « ！ » (contrat à prendre ou à rapporter) et « ？ » (témoin) en pixel au-dessus des PNJ.
-- 55 nouvelles répliques doublées (ElevenLabs eleven_v4, 2 244 crédits). Nouvelles voix : Akio pour 源造, Koichi pour 与平, Ryo pour 萬作 jeune, Akane pour お露 ; 太一 garde chinyaku dans son souvenir. Les échos des créatures sont la voix de leur auteur, chuchotée, ralentie et passée dans `aecho` (ffmpeg). 3 peintures de souvenir (570 crédits), `src/assets/memory/`, originaux dans `art/raw/`.
+- 55 nouvelles répliques doublées (ElevenLabs eleven_v4, 1 674 crédits). Nouvelles voix : Akio pour 源造, Koichi pour 与平, Ryo pour 萬作 jeune, Akane pour お露 ; 太一 garde chinyaku dans son souvenir. Les échos des créatures sont la voix de leur auteur, chuchotée, ralentie et passée dans `aecho` (ffmpeg). 3 peintures de souvenir (570 crédits), `src/assets/memory/`, originaux dans `art/raw/`.
 - Lexique : environ 130 mots ajoutés, marqueurs あたし (町娘) et ん (négation des vieux). `npm test` autorise une fin perdue dans les dialogues guéris (`HEALED`). Nouvelles fautes reconnues : だ après un verbe devant と思う ou そうだ, だ devant かもしれない.
 - `bg_temple.webp` et `p_slash.webp` retirés.
 - Vérifié dans Chrome sans écran (mode test, réponses tapées) : les trois contrats de bout en bout, avec une faute diagnostiquée au rapport, une déduction fausse, une défaite puis une victoire, les souvenirs, les répliques d'après, le repaire depuis la carte. Aucune erreur JavaScript. `npm test` et `npm run build` passent. Pas vérifié à la voix réelle.
