@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kotodama · test du micro</title>
+<style>
+:root{--bg:#15181c;--card:#1c2025;--ink:#e9e7e2;--mute:#9aa1aa;--line:#30363d;--accent:#f06a4d;--ok:#5fc496;--warn:#e0aa4a}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Yu Gothic","Hiragino Sans","Meiryo",system-ui,sans-serif;font-size:17px;line-height:1.6;color-scheme:dark}
+main{max-width:820px;margin:0 auto;padding:32px 20px 60px;display:flex;flex-direction:column;gap:22px}
+h1{font-size:26px;margin:0}p{margin:0}.mute{color:var(--mute);font-size:15px}
+button{font:inherit;font-weight:700;border-radius:5px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);padding:11px 20px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-size:19px}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:26px 22px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.tag{font-size:14px;font-weight:700;border-radius:999px;padding:3px 14px;border:1.5px solid var(--ok);color:var(--ok)}
+.tag.faux{border-color:var(--warn);color:var(--warn)}
+.jp{font-size:clamp(28px,5vw,42px);font-weight:700;line-height:1.3}
+.kana{font-size:20px;color:var(--mute)}
+.heard{min-height:64px;width:100%;border-top:1px dashed var(--line);padding-top:12px;font-size:22px}
+.heard i{font-style:normal;color:var(--mute)}
+.bar{display:flex;gap:14px;align-items:center;justify-content:space-between;color:var(--mute);font-size:15px}
+#state{font-weight:700}#state.on{color:var(--ok)}#state.off{color:var(--accent)}
+textarea{width:100%;height:260px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:12px;font:13px/1.5 ui-monospace,Consolas,monospace}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+td.g{color:var(--ok)}td.b{color:var(--accent)}td.w{color:var(--warn)}
+ol{margin:0;padding-left:22px}
+</style>
+</head>
+<body>
+<main id="intro">
+  <h1>Kotodama · test du micro</h1>
+  <p>Ce test dit si la reconnaissance vocale de Chrome suffit pour le jeu. Il dure environ cinq minutes.</p>
+  <ol>
+    <li>Clique sur Commencer et autorise le micro.</li>
+    <li>Lis chaque phrase à voix haute, une seule fois, à ton rythme normal.</li>
+    <li>Certaines phrases sont <b>fausses exprès</b>. Lis-les exactement comme elles sont écrites, sans les corriger.</li>
+    <li>Quand le texte entendu ne bouge plus, appuie sur <b>Espace</b> pour passer à la suivante.</li>
+  </ol>
+  <p class="mute" id="support"></p>
+  <div><button class="primary" id="go">Commencer</button></div>
+</main>
+<main id="test" hidden>
+  <div class="bar"><span id="count"></span><span id="state" class="off">micro coupé</span></div>
+  <div class="card">
+    <span class="tag" id="tag"></span>
+    <div class="jp" id="jp"></div>
+    <div class="kana" id="kana"></div>
+    <div class="heard" id="heard"></div>
+  </div>
+  <div class="bar"><span>Espace : phrase suivante · R : recommencer cette phrase</span><button id="next">Suivante</button></div>
+</main>
+<main id="done" hidden>
+  <h1>Test terminé</h1>
+  <p id="summary"></p>
+  <div><button class="primary" id="copy">Copier les résultats</button> <span class="mute" id="copied"></span></div>
+  <p class="mute">Colle les résultats dans notre conversation. Si le bouton ne copie pas, sélectionne tout le texte du cadre et copie-le à la main.</p>
+  <textarea id="out" readonly></textarea>
+  <div id="tbl"></div>
+</main>
+<script>
+// s : ce qu'il faut dire · k : lecture · ok : phrase juste ? · fix : ce qu'un correcteur automatique écrirait · t : type
+const ITEMS = [
+ {t:'jointure',ok:1,s:'この町は静かだと思います',k:'このまちはしずかだとおもいます'},
+ {t:'jointure',ok:0,s:'この町は静かと思います',k:'このまちはしずかとおもいます',fix:'この町は静かだと思います'},
+ {t:'jointure',ok:1,s:'明日は休みかもしれない',k:'あしたはやすみかもしれない'},
+ {t:'jointure',ok:0,s:'明日は休みだかもしれない',k:'あしたはやすみだかもしれない',fix:'明日は休みかもしれない'},
+ {t:'jointure',ok:1,s:'彼は学生なんです',k:'かれはがくせいなんです'},
+ {t:'jointure',ok:0,s:'彼は学生だんです',k:'かれはがくせいだんです',fix:'彼は学生なんです'},
+ {t:'jointure',ok:1,s:'この映画は面白かったと思う',k:'このえいがはおもしろかったとおもう'},
+ {t:'jointure',ok:0,s:'この映画は面白いだと思う',k:'このえいがはおもしろいだとおもう',fix:'この映画は面白いと思う'},
+ {t:'jointure',ok:0,s:'この本は難しいかったです',k:'このほんはむずかしいかったです',fix:'この本は難しかったです'},
+ {t:'jointure',ok:1,s:'あの店は有名だそうです',k:'あのみせはゆうめいだそうです'},
+ {t:'compteur',ok:1,s:'猫が三匹います',k:'ねこがさんびきいます'},
+ {t:'compteur',ok:0,s:'猫がさんひきいます',k:'ねこが さんひき います',fix:'猫が三匹います'},
+ {t:'compteur',ok:1,s:'ペンを六本買いました',k:'ぺんをろっぽんかいました'},
+ {t:'compteur',ok:0,s:'ペンをろくほん買いました',k:'ぺんを ろくほん かいました',fix:'ペンを六本買いました'},
+ {t:'nombre',ok:1,s:'二か月前に始めました',k:'にかげつまえにはじめました'},
+ {t:'nombre',ok:1,s:'七時十五分に起きました',k:'しちじじゅうごふんにおきました'},
+ {t:'nombre',ok:1,s:'四月二十日です',k:'しがつはつかです'},
+ {t:'nombre',ok:0,s:'四月にじゅうにちです',k:'しがつ にじゅうにち です',fix:'四月二十日です'},
+ {t:'particule',ok:0,s:'日本語が勉強しています',k:'にほんごがべんきょうしています',fix:'日本語を勉強しています'},
+ {t:'particule',ok:0,s:'東京を行きました',k:'とうきょうをいきました',fix:'東京に行きました'},
+ {t:'longue',ok:1,s:'三年前にレユニオンに行きましたが、とても暑かったです',k:'さんねんまえにれゆにおんにいきましたが、とてもあつかったです'},
+ {t:'longue',ok:1,s:'今週は休みだったので、あまり何もしませんでした',k:'こんしゅうはやすみだったので、あまりなにもしませんでした'}
+];
+const $ = s => document.querySelector(s);
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, i = -1, cur = null, res = [], running = false, restarts = 0;
+$('#support').textContent = SR ? 'Reconnaissance vocale détectée dans ce navigateur.' : 'Ce navigateur n\'a pas de reconnaissance vocale. Ouvre ce fichier dans Google Chrome.';
+$('#go').disabled = !SR;
+function norm(s){return (s||'').normalize('NFKC').replace(/[\s、。，,．.！？!?「」]/g,'');}
+function startRec(){
+  rec = new SR(); rec.lang = 'ja-JP'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 3;
+  rec.onstart = () => { $('#state').textContent = 'micro ouvert'; $('#state').className = 'on'; };
+  rec.onend = () => { $('#state').textContent = 'micro coupé'; $('#state').className = 'off'; if (running && restarts < 40) { restarts++; try { rec.start(); } catch(e){} } };
+  rec.onerror = e => { if (cur) cur.errors.push(e.error); if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { running = false; $('#heard').innerHTML = '<i>Micro refusé. Autorise le micro pour cette page (icône à gauche de la barre d\'adresse), puis recharge.</i>'; } };
+  rec.onresult = e => {
+    if (!cur) return; const now = performance.now(); let interim = '';
+    for (let j = e.resultIndex; j < e.results.length; j++) {
+      const r = e.results[j];
+      if (r.isFinal) {
+        cur.finals.push({text: r[0].transcript, conf: Math.round((r[0].confidence||0)*100)/100, alts: Array.from(r).slice(1).map(a => a.transcript), ms: Math.round(now - cur.t0)});
+      } else interim += r[0].transcript;
+    }
+    if (cur.first === null && (interim || cur.finals.length)) cur.first = Math.round(now - cur.t0);
+    if (interim) cur.interims.push(interim);
+    $('#heard').innerHTML = cur.finals.map(f => f.text).join('') + (interim ? '<i>' + interim + '</i>' : '');
+  };
+  running = true; rec.start();
+}
+function show(){
+  cur = {n: i+1, item: ITEMS[i], t0: performance.now(), first: null, finals: [], interims: [], errors: []};
+  const it = ITEMS[i];
+  $('#count').textContent = (i+1) + ' / ' + ITEMS.length;
+  $('#tag').textContent = it.ok ? 'phrase juste' : 'fausse exprès : lis-la telle quelle'; $('#tag').className = 'tag' + (it.ok ? '' : ' faux');
+  $('#jp').textContent = it.s; $('#kana').textContent = it.k; $('#heard').innerHTML = '';
+}
+function next(){ if (cur) res.push(cur); i++; if (i >= ITEMS.length) return finish(); show(); }
+function redo(){ if (!cur) return; show(); }
+function verdict(r){
+  const h = norm(r.finals.map(f => f.text).join('')), it = r.item;
+  if (!h) return ['rien entendu','b'];
+  if (it.ok) return h === norm(it.s) ? ['reconnue','g'] : ['différente','w'];
+  if (h === norm(it.fix)) return ['corrigée en silence','b'];
+  if (h === norm(it.s)) return ['erreur conservée','g'];
+  return ['autre transcription','w'];
+}
+function finish(){
+  running = false; cur = null; try { rec.stop(); } catch(e){}
+  $('#test').hidden = true; $('#done').hidden = false;
+  const lines = ['KOTODAMA TEST MICRO · ' + new Date().toISOString() + ' · ' + navigator.userAgent, 'relances du micro : ' + restarts, ''];
+  let okRec = 0, okTot = 0, kept = 0, fixed = 0, koTot = 0; let rows = '';
+  for (const r of res) {
+    const v = verdict(r), it = r.item, heard = r.finals.map(f => f.text).join(' | ');
+    if (it.ok) { okTot++; if (v[1] === 'g') okRec++; } else { koTot++; if (v[0] === 'erreur conservée') kept++; if (v[0] === 'corrigée en silence') fixed++; }
+    lines.push(r.n + '. [' + it.t + (it.ok ? ', juste' : ', FAUSSE') + '] dit : ' + it.s);
+    lines.push('   entendu : ' + (heard || '(rien)') + ' → ' + v[0]);
+    lines.push('   premier texte : ' + (r.first === null ? 'n/a' : r.first + ' ms') + ' · final : ' + (r.finals.length ? r.finals[r.finals.length-1].ms + ' ms' : 'n/a') + ' · confiance : ' + r.finals.map(f => f.conf).join(', ') + (r.errors.length ? ' · erreurs : ' + r.errors.join(',') : ''));
+    const alts = r.finals.flatMap(f => f.alts).filter(Boolean); if (alts.length) lines.push('   variantes : ' + alts.join(' / '));
+    const lastInterims = r.interims.slice(-3); if (lastInterims.length) lines.push('   en cours de route : ' + lastInterims.join(' → '));
+    rows += '<tr><td>' + r.n + '</td><td>' + it.s + '</td><td>' + (heard || '') + '</td><td class="' + v[1] + '">' + v[0] + '</td><td>' + (r.first === null ? '' : (r.first/1000).toFixed(1) + ' s') + '</td></tr>';
+  }
+  const sum = 'Phrases justes reconnues : ' + okRec + ' / ' + okTot + ' · erreurs conservées : ' + kept + ' / ' + koTot + ' · erreurs corrigées en silence : ' + fixed + ' / ' + koTot;
+  lines.splice(2, 0, sum);
+  $('#summary').textContent = sum; $('#out').value = lines.join('\n');
+  $('#tbl').innerHTML = '<table><thead><tr><th></th><th>Dit</th><th>Entendu</th><th>Verdict</th><th>Démarrage</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+$('#go').addEventListener('click', () => { $('#intro').hidden = true; $('#test').hidden = false; startRec(); next(); });
+$('#next').addEventListener('click', next);
+document.addEventListener('keydown', e => { if ($('#test').hidden) return; if (e.code === 'Space') { e.preventDefault(); next(); } if (e.code === 'KeyR') redo(); });
+$('#copy').addEventListener('click', async () => {
+  const t = $('#out'); let ok = false;
+  try { await navigator.clipboard.writeText(t.value); ok = true; } catch(e) { try { t.select(); ok = document.execCommand('copy'); } catch(e2){} }
+  $('#copied').textContent = ok ? 'Copié.' : 'Copie impossible, sélectionne le texte à la main.';
+});
+</script>
+</body>
+</html>
