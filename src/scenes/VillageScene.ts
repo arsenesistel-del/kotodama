@@ -3,11 +3,12 @@ import { TILE, type Dir } from '../world/assets';
 import { DIR_VEC, ensureAnims, faceToward, idleFrame } from '../world/actor';
 import { buildMap, type BuiltMap } from '../world/build';
 import { DEPTH, drawMap } from '../world/draw';
-import { SPEAKERS } from '../world/dialogue';
+import { DIALOGUES, SPEAKERS } from '../world/dialogue';
 import type { MapDef, NpcDef } from '../world/mapdef';
 import { MAPS } from '../world/maps';
 import { saveWorld, world } from '../world/state';
 import * as UI from '../world/ui';
+import { hooks } from '../world/vn';
 
 const WALK = 72; // px par seconde
 const RUN = 118;
@@ -79,11 +80,15 @@ export class VillageScene extends Phaser.Scene {
     UI.vignette(true);
     this.game.canvas.style.filter = 'saturate(0.74) brightness(0.94) contrast(1.05)';
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
+    hooks.beforeSave = () => this.storePos();
 
     this.cameras.main.fadeIn(600, 5, 5, 5);
     UI.placeCard(this.def.name, this.def.fr);
     if (!save.hints) {
-      UI.hint('<kbd>ZQSD</kbd> ou <kbd>↑←↓→</kbd> marcher · <kbd>Maj</kbd> courir<br><kbd>Espace</kbd> parler, lire · <kbd>T</kbd> traduction · <kbd>M</kbd> son', 14000);
+      UI.hint(
+        '<kbd>ZQSD</kbd> ou <kbd>↑←↓→</kbd> marcher · <kbd>Maj</kbd> courir<br><kbd>Espace</kbd> parler, lire · <kbd>T</kbd> ワケ traduit · clic sur un mot : son sens<br><kbd>A</kbd> オート · <kbd>Ctrl</kbd> スキップ · <kbd>B</kbd> バックログ · <kbd>Échap</kbd> メニュー · <kbd>M</kbd> son',
+        16000,
+      );
       save.hints = true;
     }
     if (!save.seen['arrival:' + this.def.id]) {
@@ -131,12 +136,11 @@ export class VillageScene extends Phaser.Scene {
     };
     kb.on('keydown', (e: KeyboardEvent) => {
       if (this.leaving) return;
+      // Pendant un dialogue, les touches vont au système de dialogue (vn.ts), qui les garde pour lui.
       if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyE') {
         e.preventDefault();
-        if (UI.dialogOpen()) UI.advance();
-        else this.interact();
-      } else if (e.code === 'KeyT') UI.toggleTranslation();
-      else if (e.code === 'KeyM') this.sound.mute = !this.sound.mute;
+        if (!UI.dialogOpen() && !UI.panelOpen()) this.interact();
+      } else if (e.code === 'KeyM') this.sound.mute = !this.sound.mute;
     });
   }
 
@@ -216,7 +220,7 @@ export class VillageScene extends Phaser.Scene {
 
     const down = (k: Phaser.Input.Keyboard.Key[]) => k.some((x) => x.isDown);
     let vx = 0, vy = 0;
-    if (!this.busy && !UI.dialogOpen()) {
+    if (!this.busy && !UI.dialogOpen() && !UI.panelOpen()) {
       if (down(this.keys.left)) vx -= 1;
       if (down(this.keys.right)) vx += 1;
       if (down(this.keys.up)) vy -= 1;
@@ -304,7 +308,7 @@ export class VillageScene extends Phaser.Scene {
   // ---------- parler, lire ----------
 
   private updateTarget(): void {
-    if (this.busy || UI.dialogOpen()) {
+    if (this.busy || UI.dialogOpen() || UI.panelOpen()) {
       UI.setPrompt(null);
       return;
     }
@@ -340,7 +344,9 @@ export class VillageScene extends Phaser.Scene {
     const n = this.npcs.find((x) => x.def.id === t.id)!;
     // Le PNJ se tourne vers le sabreur pendant qu'il parle.
     n.sprite.setFrame(idleFrame(faceToward(this.player.x - n.sprite.x, this.player.y - n.sprite.y)));
-    UI.openDialog(t.id, () => {
+    // On reparle à quelqu'un : sa réplique courte, s'il en a une.
+    const again = world().seen['talk:' + t.id] && DIALOGUES[t.id + ':again'] ? t.id + ':again' : t.id;
+    UI.openDialog(again, () => {
       this.time.delayedCall(400, () => n.sprite.setFrame(idleFrame(n.home)));
       world().seen['talk:' + t.id] = true;
       saveWorld();
@@ -386,6 +392,7 @@ export class VillageScene extends Phaser.Scene {
   }
 
   private cleanup(): void {
+    if (hooks.beforeSave) hooks.beforeSave = undefined;
     this.river?.stop();
     this.river?.destroy();
     this.river = undefined;

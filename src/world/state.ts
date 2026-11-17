@@ -9,9 +9,12 @@ export interface WorldSave {
   pos?: { x: number; y: number; face: string }; // position dans le village, en tuiles
   seen: Record<string, boolean>; // dialogues et lieux déjà vus
   hints: boolean; // aide des touches déjà montrée
+  read: Record<string, 1>; // répliques déjà lues (« dialogue:numéro »), pour 既読スキップ
+  log: string[]; // バックログ : les dernières répliques affichées
+  notebook: string[]; // 言葉帳 : marqueurs de 役割語 déjà rencontrés
 }
 
-const fresh = (): WorldSave => ({ v: 1, scene: 'village', place: 'kirino', gate: 'north', seen: {}, hints: false });
+const fresh = (): WorldSave => ({ v: 1, scene: 'village', place: 'kirino', gate: 'north', seen: {}, hints: false, read: {}, log: [], notebook: [] });
 
 let cache: WorldSave | null = null;
 
@@ -32,4 +35,10 @@ export function saveWorld(): void {
   } catch {
     /* navigation privée : on joue sans sauvegarde */
   }
+}
+
+/** Remplace la partie en cours (chargement d'un emplacement de sauvegarde). */
+export function replaceWorld(s: WorldSave): void {
+  cache = Object.assign(fresh(), JSON.parse(JSON.stringify(s)));
+  saveWorld();
 }

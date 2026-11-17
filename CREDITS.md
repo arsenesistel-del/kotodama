@@ -14,5 +14,6 @@ Chaque ressource du jeu, avec sa source et sa licence.
 | Shippori Mincho (titres, noms) | Google Fonts | FONTDASU | SIL Open Font License 1.1 |
 | Zen Kaku Gothic New (texte) | Google Fonts | Yoshimichi Ohira | SIL Open Font License 1.1 |
 | Sons et ambiance du combat | `src/combat/scene.js` | Synthétisés dans le navigateur (WebAudio) | Code du projet |
+| Liste des kanji N5 à N2 | `src/world/kanji.ts` | [kanji-data](https://github.com/davidluzgouveia/kanji-data), niveaux d'après les listes JLPT de Jonathan Waller | MIT |
 | Phaser | dépendance npm | Phaser Studio | MIT |
 | Vite, TypeScript | outils de construction | Projets open source | MIT, Apache 2.0 |

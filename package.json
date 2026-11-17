@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node scripts/check-engine.mjs && node scripts/check-maps.mjs"
+    "test": "node scripts/check-engine.mjs && node scripts/check-maps.mjs && node scripts/check-dialogue.mjs"
   },
   "dependencies": {
     "phaser": "^4.2.1"
