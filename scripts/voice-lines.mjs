@@ -12,7 +12,7 @@ const { module: K } = await runnerImport('/src/world/kanji.ts');
 const { module: V } = await runnerImport('/src/world/voicefile.ts');
 
 const known = K.knownKanji('N3');
-const NAMES = /萬作|太一|権兵衛|水車小屋|年寄|者|明日/; // lectures à imposer
+const NAMES = /萬作|太一|権兵衛|水車小屋|年寄|者|明日|源造|与平|薬売|四十年|地蔵|今夜|毎年|上|下|都|皆|何/; // lectures à imposer
 const ttsText = (jp) =>
   T.parse(jp)
     .map((s) => {

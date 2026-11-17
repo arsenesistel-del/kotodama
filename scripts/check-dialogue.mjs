@@ -9,6 +9,7 @@ const { module: T } = await runnerImport('/src/world/text.ts');
 const { module: L } = await runnerImport('/src/world/lexicon.ts');
 const { module: A } = await runnerImport('/src/world/answer.ts');
 const { module: V } = await runnerImport('/src/world/voicefile.ts');
+const { module: Q } = await runnerImport('/src/world/quest-lines.ts');
 const voices = existsSync('src/assets/voice/index.json') ? JSON.parse(readFileSync('src/assets/voice/index.json', 'utf8')) : {};
 const noVoice = [];
 
@@ -24,8 +25,10 @@ const LOST = ['と思', 'かもしれ', 'そうだ', 'そうです', 'んだ', '
 let lines = 0;
 let answers = 0;
 const used = new Set();
-// Une réplique japonaise : lectures, lexique, et (sauf pour le joueur) aucune fin perdue.
+// Une réplique japonaise : lectures, lexique, et (sauf pour le joueur) aucune fin perdue,
+// sauf celles que le dialogue a guéries (HEALED dans quest-lines.ts).
 function checkJp(where, who, jp) {
+  const healed = Q.HEALED[where.slice(0, where.lastIndexOf(':'))] ?? [];
   lines++;
   const segs = T.parse(jp);
   for (const s of segs) if (!s.ruby && kanji.test(s.base)) fail(`${where} : « ${s.base} » sans lecture dans ${jp}`);
@@ -36,7 +39,7 @@ function checkJp(where, who, jp) {
     else used.add(t.key);
   }
   const txt = T.plain(jp);
-  if (who !== 'player') for (const w of LOST) if (txt.includes(w)) fail(`${where} : fin perdue « ${w} » avant guérison`);
+  if (who !== 'player') for (const w of LOST) if (txt.includes(w) && !healed.includes(w)) fail(`${where} : fin perdue « ${w} » avant guérison`);
   if (show) console.log(`${where}  ` + toks.map((t) => (t.punct ? t.text : `[${t.text}${t.key && t.key !== t.text ? '→' + t.key : ''}]`)).join(''));
 }
 // Une réponse du joueur : la bonne phrase est acceptée écrite en clair et en kana, chaque faute prévue est

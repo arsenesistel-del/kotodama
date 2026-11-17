@@ -58,7 +58,7 @@ const objects: Placed[] = [
   { o: OBJ.barrels, x: 30, y: 6 },
 
   // Au col : le 地蔵 et le poteau.
-  { o: OBJ.jizo, x: 21, y: 3 },
+  { o: OBJ.jizo, x: 21, y: 3, id: 'site-jizo' },
   { o: OBJ.sign, x: 26, y: 3, id: 'sign-north' },
 
   // La maison de 萬作, à l'ouest.
@@ -75,7 +75,7 @@ const objects: Placed[] = [
   { o: OBJ.crate, x: 33, y: 13 },
 
   // Le moulin à l'arrêt, au bord de la rivière.
-  { o: OBJ.mill, x: 13, y: 19 },
+  { o: OBJ.mill, x: 13, y: 19, id: 'site-mill' },
   { o: OBJ.wheel, x: 17, y: 23 },
   { o: OBJ.barrels, x: 17, y: 21 },
 
@@ -155,5 +155,7 @@ export const KIRINO: MapDef = {
     'sign-bridge': 'sign-bridge',
     'sign-south': 'sign-south',
     'tomb-otsuyu': 'tomb-otsuyu',
+    'site-mill': 'site-mill',
+    'site-jizo': 'site-jizo',
   },
 };

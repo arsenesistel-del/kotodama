@@ -1,8 +1,9 @@
 /* ===== 言霊 : micro, chasse, progression, interface ===== */
 import { ASSETS } from './assets';
-import { STAGES, nextItem, matches, diagnose, norm, med, statusOf, FRAMES, TYPES, ALLKEYS, keyLabel } from './engine.js';
+import { STAGES, CONTRACT_STAGES, nextItem, matches, diagnose, norm, med, statusOf, FRAMES, TYPES, ALLKEYS, keyLabel } from './engine.js';
 import { S, Scene, Snd, resize } from './scene.js';
 import { Mic, SR } from '../mic.js';
+import * as Voice from '../world/voice';
 const $ = s => document.querySelector(s);
 const DEBUG = /debug/.test(location.hash + location.search);
 const SAVE_KEY = 'kotodama.v1', FAST = 3500, MAXHP = 5;
@@ -18,6 +19,8 @@ const H = { stage: null, mhp: 0, php: MAXHP, item: null, phase: 'idle', combo: 0
 const later = (f, ms) => { const t = setTimeout(f, ms); H.timers.push(t); return t; };
 function clearTimers() { H.timers.forEach(clearTimeout); H.timers = []; }
 function show(id) { for (const s of ['title', 'hub', 'hunt', 'result']) $('#' + s).hidden = s !== id; S.hunt = id === 'hunt'; S.title = id === 'title'; }
+// Contrat en cours (chasse lancée depuis le village) : { bonus, final: { id, jp, fr }, back } ou null pour le repaire.
+let C = null;
 let wiping = false;
 function go(fn) { // rideau d'encre entre deux écrans
   if (wiping) return; wiping = true; const w = $('#wipe'); w.className = 'in';
@@ -30,7 +33,7 @@ function startHunt(stage) {
   clearTimers(); Object.assign(H, { stage, mhp: stage.hp, php: MAXHP, item: null, phase: 'intro', combo: 0, best: 0, log: [], voids: 0, started: Date.now(), stance: 0, stag: false, raged: false, kind: 'kiri', recent: [] });
   Scene.setMonster(stage); show('hunt'); hud(); $('#readhint').hidden = true; $('#hunt').classList.add('cine');
   $('#cue').innerHTML = ''; $('#cue').hidden = true; $('#heard').textContent = ''; $('#fb').className = 'fb'; $('#fb').innerHTML = ''; $('#fb').hidden = true; $('#acts').hidden = true; $('#tbar').style.transform = 'scaleX(0)';
-  const b = $('#banner'); b.innerHTML = '<b>' + stage.name + '</b><div class="sub"><span>' + stage.fr + '</span><em>' + stage.hint + '</em></div>'; b.className = 'banner in';
+  const b = $('#banner'); b.innerHTML = '<b>' + stage.name + '</b><div class="sub"><span>' + stage.fr + '</span><em>' + stage.hint + '</em>' + (C && C.bonus ? '<em class="edge">刃 · ta lame porte la bonne fin : dégâts ×1,5, 崩 plus rapide</em>' : '') + '</div>'; b.className = 'banner in';
   later(() => Snd.drum(), 500); later(() => Snd.drum(), 1250);
   later(() => { b.className = 'banner'; $('#hunt').classList.remove('cine'); later(nextExchange, 450); }, 2700);
 }
@@ -44,7 +47,7 @@ function nextExchange() { H.phase = 'wait'; present(); }
 function pick() { let it; for (let i = 0; i < 14; i++) { it = nextItem(H.stage, save.stats, H.item); if (!H.recent.includes(it.cue.a + it.cue.b)) break; } H.recent.push(it.cue.a + it.cue.b); if (H.recent.length > 7) H.recent.shift(); return it; }
 const KINDS = { kiri: '斬', harae: '祓', ougi: '奥義' };
 function present() {
-  const it = H.item = pick(), c = it.cue, idx = STAGES.indexOf(H.stage), pH = 0.18 + idx * 0.03 + (H.raged ? 0.15 : 0);
+  const it = H.item = pick(), c = it.cue, idx = H.stage.lvl ?? STAGES.indexOf(H.stage), pH = 0.18 + idx * 0.03 + (H.raged ? 0.15 : 0);
   H.kind = H.stag ? 'ougi' : it.broken && Math.random() < pH ? 'harae' : 'kiri';
   H.dur = H.stage.timer * 1000 * (H.raged ? 0.85 : 1) * (H.kind === 'ougi' ? 1.2 : 1);
   let html = '<span class="kind">' + KINDS[H.kind] + '</span>';
@@ -86,10 +89,11 @@ function record(ok, t) {
 function success() {
   clearTimers(); Mic.disarm(); Scene.clearTele(); const now = performance.now(), start = H.tFirst, total = now - H.t0, crit = start <= FAST, ougi = H.kind === 'ougi', harae = H.kind === 'harae';
   H.combo++; H.best = Math.max(H.best, H.combo);
-  const dmg = 7 * (crit ? 2 : 1) * (ougi ? 3 : 1) * (total > 9000 ? 0.7 : 1) * (1 + Math.min(H.combo - 1, 5) * 0.05);
+  const edge = C && C.bonus ? 1.5 : 1; // déduction juste : la lame porte la bonne fin
+  const dmg = 7 * edge * (crit ? 2 : 1) * (ougi ? 3 : 1) * (total > 9000 ? 0.7 : 1) * (1 + Math.min(H.combo - 1, 5) * 0.05);
   record(true, start); H.log.push({ ok: true, crit, t: start, canon: H.item.canon, key: H.item.key, read: !!H.item.read, kind: H.kind });
   H.mhp -= dmg; H.phase = 'fb';
-  if (ougi) { H.stag = false; H.stance = 0; later(() => Scene.stagger(false), 700); } else H.stance = Math.min(100, H.stance + (crit ? 34 : 15));
+  if (ougi) { H.stag = false; H.stance = 0; later(() => Scene.stagger(false), 700); } else H.stance = Math.min(100, H.stance + (crit ? 34 : 15) * edge);
   Scene.slash(ougi ? 2 : crit ? 1 : 0, dmg, ougi ? '奥義' : crit ? '会心' : harae ? '祓' : ''); if (ougi) Snd.heavy(); else Snd.slash(crit); if (crit || ougi) later(() => Snd.stamp(), 110); hud();
   $('#cue').hidden = true; $('#readhint').hidden = true; $('#fb').hidden = false; $('#fb').className = 'fb ok' + (crit ? ' crit' : '') + (ougi ? ' ougi' : '');
   $('#fb').innerHTML = '<b>' + H.item.canon + '</b><span>' + H.item.kana + '</span><u>' + (ougi ? '奥義 · ' : '') + (crit ? '会心 · ' : '') + (start / 1000).toFixed(1) + ' s' + (crit ? '' : ' · juste, mais trop lent pour un coup critique') + '</u>';
@@ -132,19 +136,39 @@ function victory() {
   clearTimers(); H.phase = 'end'; Mic.disarm(); Scene.die(); Snd.heavy(); later(() => Snd.win(), 700); $('#hunt').classList.add('cine'); const rank = rankOf();
   const s = save.stages[H.stage.id] || (save.stages[H.stage.id] = { clears: 0, best: '' }); const first = !s.clears; s.clears++;
   if (!s.best || RANKS.indexOf(rank) > RANKS.indexOf(s.best)) s.best = rank;
-  save.frags[H.stage.id] = (save.frags[H.stage.id] || 0) + FRAG[rank]; persist();
-  later(() => go(() => result(true, rank, first)), 2700);
+  const fid = H.stage.art || H.stage.id, gain = FRAG[rank] + (C && C.bonus ? 1 : 0); H.gain = gain; H.won = true; H.rank = rank;
+  save.frags[fid] = (save.frags[fid] || 0) + gain; persist();
+  if (!C) return later(() => go(() => result(true, rank, first)), 2700);
+  // Contrat : apaisée, la créature dit enfin sa phrase entière, avec la voix de celui qui l'avait laissée en suspens.
+  later(() => {
+    const f = C.final, b = $('#banner');
+    b.innerHTML = '<b>' + f.jp + '</b><div class="sub"><span>' + f.fr + '</span><em>' + H.stage.name + ' · 鎮め</em></div>';
+    b.className = 'banner in final'; Voice.play(f.id);
+  }, 1900);
+  later(() => { $('#banner').className = 'banner'; go(() => result(true, rank, first)); }, 8400);
 }
-function defeat() { clearTimers(); H.phase = 'end'; Mic.disarm(); Scene.playerDown(); Snd.lose(); persist(); $('#hunt').classList.add('cine'); later(() => go(() => result(false, '', false)), 1500); }
-function quitHunt() { if (H.phase === 'idle' || H.phase === 'end') return; clearTimers(); H.phase = 'idle'; Mic.disarm(); persist(); go(() => { Scene.setMonster(null); hub(); }); }
+function defeat() { clearTimers(); H.won = false; H.rank = ''; H.phase = 'end'; Mic.disarm(); Scene.playerDown(); Snd.lose(); persist(); $('#hunt').classList.add('cine'); later(() => go(() => result(false, '', false)), 1500); }
+function quitHunt() { if (H.phase === 'idle' || H.phase === 'end') return; clearTimers(); H.phase = 'idle'; Mic.disarm(); persist(); if (C) return leave(false, ''); go(() => { Scene.setMonster(null); hub(); }); }
+// Fin d'une chasse de contrat : retour au village, qui jouera le souvenir ou la remarque de ワケ.
+function leave(won, rank) { clearTimers(); Mic.disarm(); Voice.stop(); C = null; Scene.setMonster(null); show('none'); window.dispatchEvent(new CustomEvent('kotodama:village', { detail: { won, rank } })); }
+/** Entrée du repaire (霧野峠 sur la carte) : l'écran titre la première fois, puis le repaire. */
+export function openHub() { C = null; if (Snd.ctx) hub(); else show('title'); }
+/** Chasse lancée par un contrat du village (voir src/scenes/CombatScene.ts). */
+export function huntContract(stageId, opts) {
+  const st = CONTRACT_STAGES.find(s => s.id === stageId); if (!st) return;
+  C = opts; Snd.on = save.sound; Snd.init(); if (!DEBUG) Mic.start();
+  startHunt(st);
+}
 function result(won, rank, first) {
   const ok = H.log.filter(l => l.ok), crit = ok.filter(l => l.crit), fails = H.log.filter(l => !l.ok), m = med(ok.map(l => l.t));
   $('#rtitle').textContent = won ? '歪み、消ゆ' : '力尽きた'; $('#rsub').textContent = won ? H.stage.fr + ' est dissipée.' : H.stage.fr + ' tient encore. Tes phrases comptent quand même.';
   $('#rrank').textContent = won ? rank : '—'; $('#rrank').className = 'rank r' + (rank || 'x');
   $('#rstats').innerHTML = '<div><b>' + H.log.length + '</b>phrases dites</div><div><b>' + ok.length + '</b>justes</div><div><b>' + crit.length + '</b>coups critiques</div><div><b>' + (m === null ? '—' : (m / 1000).toFixed(1) + ' s') + '</b>démarrage médian</div><div><b>' + H.best + '</b>meilleure série</div><div><b>' + ok.filter(l => l.kind === 'ougi').length + '</b>奥義 placées</div>';
   const idx = STAGES.indexOf(H.stage), nx = STAGES[idx + 1];
-  $('#rfrag').textContent = won ? '欠片 +' + FRAG[rank] + ' · fragments de ' + H.stage.name + ' : ' + save.frags[H.stage.id] + '. Ils serviront à la forge.' : '';
-  $('#runlock').textContent = won && first && nx ? 'Nouvelle distorsion repérée : ' + nx.name + ' (' + nx.fr + ').' : won && first ? 'Toutes les distorsions du sabre de l\'avis sont tombées une fois. Vise le rang S.' : '';
+  const fid = H.stage.art || H.stage.id;
+  $('#rfrag').textContent = won ? '欠片 +' + H.gain + (C && C.bonus ? ' (dont 1 pour la bonne déduction)' : '') + ' · fragments de ' + H.stage.name + ' : ' + save.frags[fid] + '. Ils serviront à la forge.' : '';
+  $('#runlock').textContent = C ? (won ? C.back : 'Sa phrase n\'a pas bougé. Rechasse, ou reviens plus tard.') : won && first && nx ? 'Nouvelle distorsion repérée : ' + nx.name + ' (' + nx.fr + ').' : won && first ? 'Toutes les distorsions du sabre de l\'avis sont tombées une fois. Vise le rang S.' : '';
+  $('#again').hidden = !!C && won; $('#back').textContent = C ? '村へ戻る · retour au village' : 'Retour au repaire';
   $('#rfails').innerHTML = fails.length ? fails.map(l => '<li><b>' + l.canon + '</b><span>' + l.kana + '</span><small>' + (l.diag || 'Phrase différente de l\'attendu.') + (l.heard ? ' Entendu : ' + l.heard : '') + '</small></li>').join('') : '<li class="none">Aucune phrase ratée.</li>';
   Scene.setMonster(null); $('#hunt').classList.remove('cine'); show('result'); if (won) later(() => Snd.stamp(), 380);
 }
@@ -182,7 +206,7 @@ $('#quit').addEventListener('click', quitHunt);
 $('#void').addEventListener('click', voidLast);
 $('#skip').addEventListener('click', () => { if (H.phase !== 'riposte') return; clearTimers(); Mic.disarm(); $('#acts').hidden = true; nextExchange(); });
 $('#again').addEventListener('click', () => go(() => startHunt(H.stage)));
-$('#back').addEventListener('click', () => go(hub));
+$('#back').addEventListener('click', () => C ? leave(H.won, H.rank) : go(hub));
 $('#tomap').addEventListener('click', () => { clearTimers(); Mic.disarm(); window.dispatchEvent(new Event('kotodama:map')); });
 $('#sound').addEventListener('click', () => { save.sound = !save.sound; Snd.set(save.sound); persist(); hub(); });
 $('#showhow').addEventListener('click', () => { $('#howto').hidden = false; });

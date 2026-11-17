@@ -3,12 +3,13 @@ import { TILE, type Dir } from '../world/assets';
 import { DIR_VEC, ensureAnims, faceToward, idleFrame } from '../world/actor';
 import { buildMap, type BuiltMap } from '../world/build';
 import { DEPTH, drawMap } from '../world/draw';
-import { DIALOGUES, SPEAKERS } from '../world/dialogue';
+import { SPEAKERS } from '../world/dialogue';
 import type { MapDef, NpcDef } from '../world/mapdef';
 import { MAPS } from '../world/maps';
 import { saveWorld, world } from '../world/state';
 import * as UI from '../world/ui';
 import { hooks } from '../world/vn';
+import * as Quests from '../world/quests';
 
 const WALK = 72; // px par seconde
 const RUN = 118;
@@ -38,6 +39,7 @@ export class VillageScene extends Phaser.Scene {
   private leaving = false;
   private busy = false;
   private saveClock = 0;
+  private marks = new Map<string, Phaser.GameObjects.Image>();
 
   constructor() {
     super('village');
@@ -81,6 +83,9 @@ export class VillageScene extends Phaser.Scene {
     this.game.canvas.style.filter = 'saturate(0.74) brightness(0.94) contrast(1.05)';
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     hooks.beforeSave = () => this.storePos();
+    hooks.act = (a) => Quests.act(a);
+    this.makeMarkers();
+    this.refreshQuest();
 
     this.cameras.main.fadeIn(600, 5, 5, 5);
     UI.placeCard(this.def.name, this.def.fr);
@@ -91,7 +96,18 @@ export class VillageScene extends Phaser.Scene {
       );
       save.hints = true;
     }
-    if (!save.seen['arrival:' + this.def.id]) {
+    // Retour d'une chasse de contrat : le souvenir, ou la remarque de ワケ après une défaite.
+    save.hunt = undefined;
+    if (save.after) {
+      this.busy = true;
+      const ids = Quests.afterHunt();
+      this.time.delayedCall(900, () =>
+        UI.openChain(ids, () => {
+          this.busy = false;
+          this.refreshQuest();
+        }),
+      );
+    } else if (!save.seen['arrival:' + this.def.id]) {
       save.seen['arrival:' + this.def.id] = true;
       saveWorld();
       this.busy = true;
@@ -103,6 +119,13 @@ export class VillageScene extends Phaser.Scene {
       go: (x: number, y: number) => this.player.setPosition(x * TILE, y * TILE),
       state: () => ({ x: this.player.x / TILE, y: this.player.y / TILE, face: this.face, target: this.target, dialog: UI.dialogOpen() }),
       talk: () => this.interact(),
+      talkTo: (id: string) => {
+        this.target = { kind: this.npcs.some((n) => n.def.id === id) ? 'npc' : 'read', id };
+        this.interact();
+      },
+      quests: () => JSON.parse(JSON.stringify(world().quests)),
+      hud: () => Quests.hud(),
+      mark: (id: string) => Quests.marker(id),
     };
   }
 
@@ -242,6 +265,8 @@ export class VillageScene extends Phaser.Scene {
     }
     this.player.setDepth(DEPTH.actors + this.player.y * 1e-5);
     for (const n of this.npcs) n.sprite.setDepth(DEPTH.actors + n.sprite.y * 1e-5);
+    const bob = Math.round(Math.sin(this.time.now / 260) * 1.5);
+    for (const n of this.npcs) this.marks.get(n.def.id)?.setPosition(n.sprite.x, n.sprite.y - 19 + bob);
 
     this.followWake(dt, moving);
     this.checkExit();
@@ -331,6 +356,7 @@ export class VillageScene extends Phaser.Scene {
     this.target = best;
     if (!best) return UI.setPrompt(null);
     if (best.kind === 'npc') UI.setPrompt(`話す <small>${UI.plain(SPEAKERS[best.id]?.name ?? '')}</small>`);
+    else if (best.id.startsWith('site-') || Quests.QUESTS.some((q) => q.site === best!.id && Quests.active() === q)) UI.setPrompt('調べる <small>examiner</small>');
     else UI.setPrompt('読む <small>lire</small>');
   }
 
@@ -338,19 +364,101 @@ export class VillageScene extends Phaser.Scene {
     const t = this.target;
     if (!t || this.busy) return;
     if (t.kind === 'read') {
-      UI.openDialog(this.def.readables[t.id] ?? t.id);
+      // Un objet peut être le site d'un contrat : la créature s'y montre, on finit sa phrase, puis on chasse.
+      const plan = Quests.sitePlan(t.id, this.def.readables[t.id] ?? t.id);
+      this.busy = true;
+      UI.openChain(plan.ids, () => {
+        this.busy = false;
+        const st = plan.hunt && Quests.stateOf(plan.hunt);
+        if (plan.hunt && st?.step === 'hunt' && st.guess) this.startHunt(plan.hunt);
+        else this.refreshQuest();
+      });
       return;
     }
     const n = this.npcs.find((x) => x.def.id === t.id)!;
     // Le PNJ se tourne vers le sabreur pendant qu'il parle.
     n.sprite.setFrame(idleFrame(faceToward(this.player.x - n.sprite.x, this.player.y - n.sprite.y)));
-    // On reparle à quelqu'un : sa réplique courte, s'il en a une.
-    const again = world().seen['talk:' + t.id] && DIALOGUES[t.id + ':again'] ? t.id + ':again' : t.id;
-    UI.openDialog(again, () => {
+    // Ce qu'il dit dépend des contrats : le donner, témoigner, recevoir le rapport, ou sa réplique ordinaire.
+    const plan = Quests.talkPlan(t.id);
+    const accepting = plan.ids.some((i) => i.endsWith(':give'));
+    const reporting = plan.ids.some((i) => i.endsWith(':report'));
+    this.busy = true;
+    UI.openChain(plan.ids, () => {
+      this.busy = false;
       this.time.delayedCall(400, () => n.sprite.setFrame(idleFrame(n.home)));
       world().seen['talk:' + t.id] = true;
+      plan.after?.();
       saveWorld();
+      const q = Quests.questById(plan.ids.find((i) => /^c\d:/.test(i))?.split(':')[0] ?? '');
+      if (accepting && q) UI.placeCard(q.title, `依頼 · ${q.fr}`, '依');
+      if (reporting && q) {
+        UI.placeCard(q.title, 'Contrat rempli', '了');
+        UI.toast(`縁 ＋1 <small>${Quests.NAMES[t.id] ?? ''}</small>`);
+      }
+      this.refreshQuest();
     });
+  }
+
+  // ---------- contrats ----------
+
+  /** Encart du contrat, marqueurs au-dessus des PNJ, roue du moulin qui tourne une fois le premier contrat fini. */
+  private refreshQuest(): void {
+    UI.questHud(Quests.hud());
+    for (const n of this.npcs) {
+      const m = Quests.marker(n.def.id);
+      const img = this.marks.get(n.def.id);
+      if (img) img.setVisible(!!m).setTexture(m === '？' ? 'mark?' : 'mark!');
+    }
+    const turning = world().quests.c1?.step === 'done';
+    if (!this.anims.exists('wheel-turn')) this.anims.create({ key: 'wheel-turn', frames: this.anims.generateFrameNumbers('tiles/watermill', { start: 0, end: 2 }), frameRate: 6, repeat: -1 });
+    for (const o of this.children.list)
+      if (o instanceof Phaser.GameObjects.Sprite && o.texture.key === 'tiles/watermill') {
+        if (turning && !o.anims.isPlaying) o.play('wheel-turn');
+        if (!turning && o.anims.isPlaying) o.stop();
+      }
+  }
+
+  private makeMarkers(): void {
+    // Petite bulle en pixel, os pâle, signe vermillon : « ！ » contrat à prendre ou à rapporter, « ？ » témoin.
+    const glyphs: Record<string, string[]> = {
+      '!': ['..#..', '..#..', '..#..', '..#..', '.....', '..#..'],
+      '?': ['.###.', '#...#', '...#.', '..#..', '.....', '..#..'],
+    };
+    for (const [k, rows] of Object.entries(glyphs)) {
+      const key = 'mark' + k;
+      if (this.textures.exists(key)) continue;
+      const c = document.createElement('canvas');
+      c.width = 9;
+      c.height = 11;
+      const g = c.getContext('2d')!;
+      g.fillStyle = '#141b1b';
+      g.fillRect(1, 0, 7, 9);
+      g.fillRect(0, 1, 9, 7);
+      g.fillRect(3, 9, 3, 1);
+      g.fillRect(4, 10, 1, 1);
+      g.fillStyle = '#ece6da';
+      g.fillRect(1, 1, 7, 7);
+      g.fillRect(4, 8, 1, 1);
+      g.fillStyle = '#d4412b';
+      rows.forEach((r, y) => [...r].forEach((ch, x) => ch === '#' && g.fillRect(2 + x, 1 + y, 1, 1)));
+      this.textures.addCanvas(key, c);
+    }
+    this.marks.clear();
+    for (const n of this.npcs) this.marks.set(n.def.id, this.add.image(n.sprite.x, n.sprite.y - 19, 'mark!').setOrigin(0.5, 1).setDepth(DEPTH.fog + 1).setVisible(false));
+  }
+
+  private startHunt(q: Quests.QuestDef): void {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.storePos();
+    const save = world();
+    save.hunt = q.id;
+    saveWorld();
+    UI.setPrompt(null);
+    UI.questHud(null);
+    this.cameras.main.flash(260, 212, 65, 43);
+    this.time.delayedCall(280, () => this.cameras.main.fadeOut(500, 5, 5, 5));
+    this.time.delayedCall(820, () => this.scene.start('combat', { quest: q.id }));
   }
 
   // ---------- sorties, son, sauvegarde ----------
@@ -393,6 +501,8 @@ export class VillageScene extends Phaser.Scene {
 
   private cleanup(): void {
     if (hooks.beforeSave) hooks.beforeSave = undefined;
+    hooks.act = undefined;
+    UI.questHud(null);
     this.river?.stop();
     this.river?.destroy();
     this.river = undefined;

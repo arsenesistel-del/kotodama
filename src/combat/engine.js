@@ -168,6 +168,12 @@ const STAGES = [
   { id: 'wake', name: '訳の主', fr: 'Le maître des raisons', hint: 'んです : だ devient な', keys: ['ndesu.na', 'ndesu.no', 'ndesu.ia', 'ndesu.ve'], forms: ['aff', 'aff', 'neg', 'past'], hp: 190, timer: 11, hue: 328, glyphs: 'なんです訳' },
   { id: 'ou', name: '歪みの王', fr: 'Le roi des distorsions', hint: 'tout le sabre de l\'avis', keys: ALLKEYS, forms: ['aff', 'neg', 'past'], hp: 300, timer: 10, hue: 2, glyphs: '歪王だなかった' }
 ];
+// Chasses des contrats du chapitre 1 (src/world/quests.ts) : la créature de la v4 (`art`), la fin que le village a perdue.
+const CONTRACT_STAGES = [
+  { id: 'c-kake', art: 'kake', lvl: 0, name: '欠けの影', fr: 'L\'ombre du manque', hint: 'と思う : un avis', keys: ['omou.na', 'omou.no', 'omou.ia', 'omou.ve'], forms: ['aff', 'aff', 'neg', 'past'], hp: 140, timer: 14, hue: 188, glyphs: 'と思う欠影' },
+  { id: 'c-yuragi', art: 'yuragi', lvl: 1, name: '揺らぎ', fr: 'Le vacillement', hint: 'そうです : ce qu\'on t\'a dit', keys: ['souda.na', 'souda.no', 'souda.ia', 'souda.ve'], forms: ['aff', 'aff', 'neg', 'past'], hp: 160, timer: 13, hue: 268, glyphs: 'そうだ揺' },
+  { id: 'c-kuzure', art: 'kuzure', lvl: 2, name: '崩れ', fr: 'L\'effondrement', hint: 'かもしれない : un doute, sans だ', keys: ['kamo.na', 'kamo.no', 'kamo.ia', 'kamo.ve', 'omou.na'], forms: ['aff', 'aff', 'neg', 'past'], hp: 170, timer: 13, hue: 28, glyphs: 'かもしれ崩' }
+];
 function nextItem(stage, stats, last) {
   const w = { neuf: 3, essai: 3, casse: 4, lent: 2, reflexe: 1 };
   const pool = stage.keys.map(k => [k, w[statusOf(stats[k])]]), tot = pool.reduce((s, x) => s + x[1], 0);
@@ -179,4 +185,4 @@ function nextItem(stage, stats, last) {
   }
   return gen(R(stage.keys), stage.forms);
 }
-export { gen, genJoint, broken, matches, diagnose, norm, med, ALLKEYS, STAGES, nextItem, keyLabel, statusOf, FRAMES, TYPES, FORMS };
+export { gen, genJoint, broken, matches, diagnose, norm, med, ALLKEYS, STAGES, CONTRACT_STAGES, nextItem, keyLabel, statusOf, FRAMES, TYPES, FORMS };

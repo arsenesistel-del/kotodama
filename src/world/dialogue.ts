@@ -9,10 +9,13 @@
 // c'est sa lame. Une réplique « player » avec des `choices` propose plusieurs phrases ; celle qu'il dit mène à
 // son dialogue `goto`, puis on reprend la suite.
 
+import { QUEST_DIALOGUES, QUEST_SPEAKERS } from './quest-lines';
+
 export interface Choice {
   jp: string;
   fr: string;
   goto?: string; // dialogue joué ensuite, avant de reprendre la suite
+  act?: string; // action transmise au jeu quand cette phrase est dite (déduction d'un contrat)
 }
 
 export interface Line {
@@ -31,6 +34,7 @@ export const SPEAKERS: Record<string, { name: string; face?: string }> = {
   wake: { name: 'ワケ', face: 'actors/spirit_face' },
   player: { name: 'あなた', face: 'actors/samuraiblue_face' },
   sign: { name: '' },
+  ...QUEST_SPEAKERS,
 };
 
 export const DIALOGUES: Record<string, Line[]> = {
@@ -114,4 +118,5 @@ export const DIALOGUES: Record<string, Line[]> = {
     { who: 'sign', jp: '{露|つゆ}の{墓|はか}', fr: 'La tombe de Tsuyu.' },
     { who: 'wake', fr: 'Quelqu’un vient la nettoyer souvent. Les fleurs sont fraîches.' },
   ],
+  ...QUEST_DIALOGUES,
 };
