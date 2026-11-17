@@ -70,7 +70,7 @@ const objects: Placed[] = [
   { o: OBJ.houseBeige, x: 14, y: 8 },
   { o: OBJ.houseDark, x: 30, y: 11 },
   { o: OBJ.houseOrange2, x: 34, y: 11 },
-  { o: OBJ.well, x: 20, y: 13 },
+  { o: OBJ.well, x: 20, y: 13, id: 'site-well' },
   { o: OBJ.pot, x: 29, y: 13 },
   { o: OBJ.crate, x: 33, y: 13 },
 
@@ -88,6 +88,7 @@ const objects: Placed[] = [
   { o: OBJ.terrace(8, 3), x: 6, y: 29 },
   { o: OBJ.terrace(10, 3), x: 5, y: 32 },
   { o: OBJ.terrace(6, 3), x: 14, y: 32 },
+  { o: OBJ.scarecrow, x: 13, y: 31, id: 'site-scarecrow' },
 
   // La colline du cimetière, au sud-est.
   { o: OBJ.torii, x: 38, y: 29 },
@@ -157,5 +158,7 @@ export const KIRINO: MapDef = {
     'tomb-otsuyu': 'tomb-otsuyu',
     'site-mill': 'site-mill',
     'site-jizo': 'site-jizo',
+    'site-well': 'site-well',
+    'site-scarecrow': 'site-scarecrow',
   },
 };

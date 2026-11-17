@@ -12,13 +12,14 @@ import * as Voice from './voice';
 import { WORLD } from './assets';
 import { DIALOGUES, SPEAKERS, type Choice, type Line } from './dialogue';
 import { MEMORY_ART } from './quest-lines';
+import { CINE_ART, CINE_FX } from './story-lines';
 import { LEX, MARKERS, MARKER_WHO } from './lexicon';
 import { MAPS } from './maps';
 import { placeById } from './places';
 import * as P from './prefs';
 import * as Progress from './progress';
 import * as Record from './record';
-import { replaceWorld, saveWorld, world, type WorldSave } from './state';
+import { newGame, replaceWorld, saveWorld, world, type WorldSave } from './state';
 import { entryOf, parse, plain, tokenize, type Token } from './text';
 
 /** Branchements fournis par le jeu (main.ts, scènes). */
@@ -33,12 +34,12 @@ export const hooks: {
 const MEM = import.meta.glob('../assets/memory/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const memUrl = (k: string) => Object.entries(MEM).find(([p]) => p.endsWith('/' + k + '.webp'))?.[1];
 // Les créatures parlent d'une voix d'écho (la phrase qu'elles répètent).
-const ECHO = new Set(['kage', 'yuragi', 'kuzure']);
+const ECHO = new Set(['kage', 'yuragi', 'kuzure', 'tsubu', 'mayoi', 'kiri']);
 
 const root = document.createElement('div');
 root.id = 'vn';
 root.innerHTML = `
-  <div class="memory" hidden><img alt=""><b>記憶</b></div>
+  <div class="memory" hidden><img alt=""><b>記憶</b><i class="cseal">訳</i></div>
   <button class="menubtn" title="Menu (Échap)">メニュー</button>
   <div class="whisper" hidden>
     <img alt="">
@@ -82,6 +83,8 @@ root.innerHTML = `
       <button data-a="load">ロード<small>charger</small></button>
       <button data-a="log">バックログ<small>historique</small></button>
       <button data-a="record">記録<small>bilan de la semaine</small></button>
+      <button data-a="scenes">回想<small>revoir les scènes</small></button>
+      <button data-a="newgame">はじめから<small>nouvelle partie</small></button>
       <button data-a="config">設定<small>réglages</small></button>
       <button data-a="close">閉じる<small>reprendre</small></button>
     </div>
@@ -99,6 +102,11 @@ root.innerHTML = `
     <header><h2>記録</h2><button class="nav" data-a="recprev" title="Semaine précédente">‹</button><button class="nav" data-a="recnext" title="Semaine suivante">›</button><button class="x" data-a="close">✕</button></header>
     <div class="rec"></div>
     <footer>Le jeu suit chaque mot et chaque structure que tu dis. L’aide d’un mot s’efface quand il est acquis, et revient s’il s’oublie.</footer>
+  </section>
+  <section class="vp p-scenes" hidden>
+    <header><h2>回想</h2><button class="x" data-a="close">✕</button></header>
+    <div class="scenes"></div>
+    <footer>Les cinématiques et les souvenirs déjà vus. Rien n’y est compté.</footer>
   </section>
   <section class="vp p-config" hidden>
     <header><h2>設定</h2><button class="x" data-a="close">✕</button></header>
@@ -214,20 +222,31 @@ export function openChain(ids: string[], done?: () => void): void {
   openDialog(first, () => (rest.length ? openChain(rest, done) : done?.()));
 }
 
-/** Souvenir : la peinture derrière la boîte, et les couleurs passées. */
-function setMemory(art: string | undefined): void {
+/** Peinture du dialogue en cours : une cinématique (CINE_ART) ou un souvenir (MEMORY_ART). */
+function artNow(): { art?: string; cine: boolean } {
+  const ids = [dlgId, ...stack.map((x) => x.id)];
+  const cine = ids.map((i) => CINE_ART[i]).find(Boolean);
+  if (cine) return { art: cine, cine: true };
+  return { art: ids.map((i) => MEMORY_ART[i]).find(Boolean), cine: false };
+}
+
+/** Souvenir : la peinture derrière la boîte, et les couleurs passées. Cinématique : la peinture seule, sans le sceau 記憶. */
+function setMemory(art: string | undefined, cine = false): void {
   const m = $('.memory');
   const url = art && memUrl(art);
-  root.classList.toggle('remember', !!art);
+  root.classList.toggle('remember', !!art && !cine);
+  root.classList.toggle('cine', !!art && cine);
   if (!url) {
     m.hidden = true;
+    m.classList.remove('sealed');
     return;
   }
   const img = $<HTMLImageElement>('.memory img');
-  if (!img.src.endsWith(url)) img.src = url;
-  if (m.hidden) {
+  const changed = !img.src.endsWith(url);
+  if (changed) img.src = url;
+  if (m.hidden || changed) {
     m.hidden = false;
-    m.classList.remove('go');
+    m.classList.remove('go', 'sealed');
     void m.offsetWidth;
     m.classList.add('go');
   }
@@ -252,10 +271,17 @@ function showLine(): void {
   if (l.who === 'player') return showAnswer(l);
   const sp = SPEAKERS[l.who] ?? { name: l.who };
   const box = $('.dlg');
-  setMemory(MEMORY_ART[dlgId] ?? stack.map((s) => MEMORY_ART[s.id]).find(Boolean));
+  const a = artNow();
+  setMemory(a.art, a.cine);
+  if (CINE_FX[lineId()] === 'seal') $('.memory').classList.add('sealed');
   box.classList.toggle('echo', ECHO.has(l.who));
-  box.classList.toggle('wake', l.who === 'wake');
+  box.classList.toggle('wake', l.who === 'wake' || l.who === 'stone');
   box.classList.toggle('sign', l.who === 'sign');
+  // Le narrateur des cinématiques : sous-titre français toujours affiché, sous le japonais.
+  const narr = l.who === 'narr';
+  box.classList.toggle('narr', narr);
+  $('.sub').hidden = !narr;
+  $('.sub').textContent = narr ? l.fr : '';
   $('.face').hidden = !sp.face;
   if (sp.face) $<HTMLImageElement>('.face img').src = WORLD[sp.face];
   $('.name').innerHTML = rubyAll(sp.name);
@@ -390,7 +416,9 @@ function closeDialog(): void {
   $('.dlg').hidden = true;
   $('.whisper').hidden = true;
   $('.menubtn').hidden = false;
+  $('.dlg').classList.remove('narr');
   setMemory(undefined);
+  replaying = false;
   closeWord();
   const cb = onEnd;
   onEnd = null;
@@ -416,9 +444,11 @@ export function advance(): void {
 function showAnswer(l: Line): void {
   const sp = SPEAKERS.player;
   const box = $('.dlg');
-  box.classList.remove('wake', 'sign', 'ok', 'echo');
+  box.classList.remove('wake', 'sign', 'ok', 'echo', 'narr');
   box.classList.add('answer');
-  setMemory(undefined);
+  $('.sub').hidden = true;
+  const a = artNow();
+  setMemory(a.cine ? a.art : undefined, a.cine);
   $('.face').hidden = !sp.face;
   if (sp.face) $<HTMLImageElement>('.face img').src = WORLD[sp.face];
   $('.name').innerHTML = rubyAll(sp.name) + '<small>声に出して</small>';
@@ -691,7 +721,7 @@ function refreshText(): void {
 
 // ---------- panneaux ----------
 
-type Panel = 'menu' | 'log' | 'slots' | 'config' | 'record';
+type Panel = 'menu' | 'log' | 'slots' | 'config' | 'record' | 'scenes';
 let panel: Panel | null = null;
 export const panelOpen = () => panel !== null;
 
@@ -932,6 +962,48 @@ function replay(slow: boolean): void {
   speak(slow);
 }
 
+// ---------- 回想 : revoir les cinématiques et les souvenirs ----------
+
+/** Les scènes qu'on peut revoir, dans l'ordre du chapitre. Une scène est débloquée dès que sa première réplique a été lue. */
+export const SCENES: { label: string; fr: string; ids: string[] }[] = [
+  { label: '序章', fr: 'Prologue : le pays de Yakumo', ids: ['pro:cine1', 'pro:cine2'] },
+  { label: '記憶　水車小屋', fr: 'Souvenir : le moulin', ids: ['c1:memory'] },
+  { label: '記憶　峠', fr: 'Souvenir : le col', ids: ['c2:memory'] },
+  { label: '記憶　井戸', fr: 'Souvenir : le puits', ids: ['r1:memory'] },
+  { label: '記憶　吊り橋', fr: 'Souvenir : le pont suspendu', ids: ['c3:memory'] },
+  { label: '記憶　案山子', fr: 'Souvenir : l’épouvantail', ids: ['r2:memory'] },
+  { label: '記憶　枕元', fr: 'Souvenir : au chevet de Tsuyu', ids: ['c4:memory'] },
+  { label: '終章', fr: 'Épilogue : la brume se lève', ids: ['ep:tomb', 'ep:dawn', 'ep:tea', 'ep:seal'] },
+];
+let replaying = false;
+function openScenes(): void {
+  openPanel('scenes');
+  const w = world();
+  $('.scenes').innerHTML = SCENES.map((sc, i) => {
+    const ok = !!w.read[sc.ids[0] + ':0'];
+    return `<button class="scene${ok ? '' : ' locked'}" data-sc="${i}"${ok ? '' : ' disabled'}><b>${ok ? sc.label : '？？？'}</b><small>${ok ? sc.fr : 'pas encore vue'}</small></button>`;
+  }).join('');
+}
+function playScene(i: number): void {
+  const sc = SCENES[i];
+  if (!sc || dialogOpen()) return;
+  closePanel();
+  replaying = true;
+  openChain(sc.ids);
+}
+
+let armedNew = 0;
+function askNewGame(): void {
+  const b = $('.p-menu [data-a="newgame"]');
+  if (Date.now() - armedNew > 4000) {
+    armedNew = Date.now();
+    b.innerHTML = 'はじめから<small>sûr ? clique encore : le monde repart du col (tes mots et ta progression restent)</small>';
+    return;
+  }
+  newGame();
+  location.reload();
+}
+
 function act(a: string): void {
   if (a === 'save' || a === 'load') openSlots(a);
   else if (a === 'auto') setAuto(!auto);
@@ -940,6 +1012,8 @@ function act(a: string): void {
   else if (a === 'skip') setSkip(!skip);
   else if (a === 'log') openLog();
   else if (a === 'record') openRecord(0);
+  else if (a === 'scenes') openScenes();
+  else if (a === 'newgame') askNewGame();
   else if (a === 'recprev') openRecord(recBack + 1);
   else if (a === 'recnext') openRecord(recBack - 1);
   else if (a === 'config') {
@@ -969,6 +1043,8 @@ root.addEventListener('click', (e) => {
   }
   if (el.closest('.menubtn')) return openMenu();
   if (el.closest('.wakebtn')) return toggleTranslation();
+  const sc = el.closest<HTMLElement>('.scene[data-sc]');
+  if (sc) return playScene(Number(sc.dataset.sc));
   const slot = el.closest<HTMLElement>('.slot');
   if (slot) return useSlot(Number(slot.dataset.s));
   const cfg = el.closest<HTMLElement>('.config button');

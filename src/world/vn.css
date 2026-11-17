@@ -490,3 +490,30 @@
 @media (max-width: 720px) {
   #vn .rec .tiles { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---------- session 8 : cinématiques, narrateur, sceau, 回想 ---------- */
+#vn .memory .cseal{display:none}
+#vn.cine .memory b{display:none}
+#vn.cine .memory img{filter:contrast(1.05) brightness(.9)}
+#vn.cine .memory.go img{animation:cineDrift 40s linear both}
+@keyframes cineDrift{from{transform:scale(1)}to{transform:scale(1.09) translateY(-1%)}}
+#vn.cine .menubtn{display:none}
+/* Le narrateur : pas de boîte, le japonais au centre, le sous-titre français dessous, comme au cinéma. */
+#vn .dlg.narr{background:linear-gradient(180deg,transparent,rgba(5,5,5,.78) 40%);border:0;box-shadow:none;min-height:0;padding:40px 30px 46px;justify-content:center;bottom:0;width:100vw;text-align:center}
+#vn .dlg.narr .face,#vn .dlg.narr .name,#vn .dlg.narr .wakebtn,#vn .dlg.narr .qm{display:none}
+#vn .dlg.narr .body{padding:0;max-width:980px}
+#vn .dlg.narr .text{font-family:'Shippori Mincho','Yuji Syuku',serif;font-size:30px;line-height:1.9;letter-spacing:.12em;color:#f2ecdf;text-shadow:0 2px 16px #000}
+#vn .dlg.narr .text rt{font-size:12px}
+#vn .dlg .sub{margin-top:8px;font-size:15px;letter-spacing:.03em;color:rgba(236,230,218,.72);font-style:italic}
+#vn .dlg.narr .next{right:50%;transform:translateX(50%)}
+/* Le sceau 訳 qui apparaît sur la borne du col, à l'épilogue. */
+#vn .memory.sealed .cseal{display:grid;place-items:center;position:absolute;left:50%;top:38%;width:96px;height:96px;margin:-48px 0 0 -48px;font-style:normal;font-family:'Yuji Syuku',serif;font-size:58px;color:#f6ece6;background:#d4412b;border-radius:6px;box-shadow:0 0 0 6px rgba(212,65,43,.22),0 0 60px rgba(212,65,43,.45);z-index:2;animation:cseal 1.4s .6s cubic-bezier(.25,1.5,.5,1) both;mix-blend-mode:normal}
+@keyframes cseal{0%{opacity:0;transform:scale(2.4) rotate(-14deg);filter:blur(6px)}60%{opacity:1;filter:none}100%{opacity:.92;transform:scale(1) rotate(-6deg)}}
+/* 回想 */
+#vn .p-scenes{width:min(640px,calc(100vw - 40px))}
+#vn .scenes{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 18px 18px}
+#vn .scene{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:10px 12px;border:1px solid var(--line);background:rgba(20,18,16,.8);color:var(--bone);text-align:left;cursor:pointer}
+#vn .scene b{font-family:'Yuji Syuku',serif;font-weight:400;font-size:17px}
+#vn .scene small{color:var(--dim);font-size:12px}
+#vn .scene:hover:not([disabled]){border-color:rgba(212,65,43,.6)}
+#vn .scene.locked{opacity:.35;cursor:default}

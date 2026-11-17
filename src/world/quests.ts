@@ -6,7 +6,7 @@ import { DIALOGUES } from './dialogue';
 import { plain } from './text';
 import { saveWorld, world } from './state';
 
-export type Frame = 'omou' | 'kamo' | 'souda';
+export type Frame = 'omou' | 'kamo' | 'souda' | 'ndesu';
 
 export interface QuestDef {
   id: string;
@@ -20,12 +20,16 @@ export interface QuestDef {
   stage: string; // chasse du moteur (CONTRACT_STAGES dans engine.js)
   answer: Frame; // la fin perdue
   prev?: string; // contrat à finir avant
+  side?: boolean; // petit contrat de révision, tiré d'une rumeur : il ne bloque pas l'histoire
 }
 
 export const QUESTS: QuestDef[] = [
   { id: 'c1', title: '水車小屋の影', reading: 'すいしゃごやのかげ', fr: 'L’ombre du moulin', giver: 'taichi', witnesses: ['otane', 'gonbei'], site: 'site-mill', siteFr: 'le moulin', stage: 'c-kake', answer: 'omou' },
   { id: 'c2', title: '峠の噂', reading: 'とうげのうわさ', fr: 'La rumeur du col', giver: 'omitsu', witnesses: ['mansaku', 'gonbei'], site: 'site-jizo', siteFr: 'le 地蔵 du col', stage: 'c-yuragi', answer: 'souda', prev: 'c1' },
+  { id: 'r1', title: '井戸の呟き', reading: 'いどのつぶやき', fr: 'Le murmure du puits', giver: 'omitsu', witnesses: ['taichi', 'otane'], site: 'site-well', siteFr: 'le puits', stage: 'c-tsubu', answer: 'omou', prev: 'c2', side: true },
   { id: 'c3', title: '吊り橋', reading: 'つりばし', fr: 'Le pont suspendu', giver: 'mansaku', witnesses: ['otane', 'taichi'], site: 'sign-bridge', siteFr: 'le pont suspendu', stage: 'c-kuzure', answer: 'kamo', prev: 'c2' },
+  { id: 'r2', title: '案山子の迷い', reading: 'かかしのまよい', fr: 'L’hésitation de l’épouvantail', giver: 'otane', witnesses: ['gonbei', 'omitsu'], site: 'site-scarecrow', siteFr: 'l’épouvantail des rizières', stage: 'c-mayoi', answer: 'kamo', prev: 'c3', side: true },
+  { id: 'c4', title: '霧の丘', reading: 'きりのおか', fr: 'La colline de la brume', giver: 'mansaku', witnesses: ['taichi', 'omitsu'], site: 'tomb-otsuyu', siteFr: 'la tombe de お露, sur la colline', stage: 'c-kiri', answer: 'ndesu', prev: 'c3' },
 ];
 
 export type Step = 'given' | 'hunt' | 'report' | 'done';
@@ -40,19 +44,32 @@ export interface QuestState {
 
 export const NAMES: Record<string, string> = { taichi: '太一', omitsu: 'おみつ', mansaku: '萬作', otane: 'おたね', gonbei: '権兵衛' };
 
+export const RX_QUEST = /^[cr]\d:/;
+
 export const questById = (id: string) => QUESTS.find((q) => q.id === id);
 export const stateOf = (q: QuestDef): QuestState | undefined => world().quests[q.id];
 
-/** Le contrat en cours ou le prochain à prendre (le premier qui n'est pas fini et dont le précédent l'est). */
+const doneId = (id?: string) => !id || world().quests[id]?.step === 'done';
+
+/** Le contrat de l'histoire en cours ou le prochain à prendre (le premier qui n'est pas fini et dont le précédent l'est). */
 export function current(): QuestDef | undefined {
-  return QUESTS.find((q) => stateOf(q)?.step !== 'done' && (!q.prev || world().quests[q.prev]?.step === 'done'));
+  return QUESTS.find((q) => !q.side && stateOf(q)?.step !== 'done' && doneId(q.prev));
 }
 
-/** Contrat accepté et pas encore rapporté. */
+/** Contrats ouverts : celui de l'histoire d'abord, puis les contrats de révision disponibles. */
+export function open(): QuestDef[] {
+  const main = current();
+  return [...(main ? [main] : []), ...QUESTS.filter((q) => q.side && stateOf(q)?.step !== 'done' && doneId(q.prev))];
+}
+
+/** Contrats acceptés et pas encore rapportés, celui de l'histoire d'abord. */
+export function actives(): QuestDef[] {
+  return open().filter((q) => stateOf(q) && stateOf(q)!.step !== 'done');
+}
+
+/** Le contrat accepté le plus important (celui de l'histoire, sinon un contrat de révision). */
 export function active(): QuestDef | undefined {
-  const q = current();
-  const st = q && stateOf(q);
-  return q && st && st.step !== 'done' ? q : undefined;
+  return actives()[0];
 }
 
 export const missing = (q: QuestDef): string[] => q.witnesses.filter((w) => !stateOf(q)?.heard.includes(w));
@@ -62,20 +79,27 @@ export interface Plan {
   after?: () => void; // ce qui change une fois qu'ils sont finis
 }
 
+/** Réplique ordinaire d'un PNJ : la première rencontre, la courte, ou celle d'après son dernier contrat. */
+function baseLine(npc: string): string {
+  const w = world();
+  const met = !!w.seen['talk:' + npc];
+  let base = met && DIALOGUES[npc + ':again'] ? npc + ':again' : npc;
+  for (const q of QUESTS) if (q.giver === npc && stateOf(q)?.step === 'done' && DIALOGUES[q.id + ':after']) base = q.id + ':after';
+  // Après l'épilogue, le village a sa réplique de la fin du chapitre.
+  if (w.flags?.ch1 && DIALOGUES[npc + ':ep']) base = npc + ':ep';
+  return base;
+}
+
 /** Ce que dit un PNJ quand on lui parle, selon où en sont les contrats. */
 export function talkPlan(npc: string): Plan {
   const w = world();
   const met = !!w.seen['talk:' + npc];
-  // Réplique de base : la première rencontre, puis la réplique courte… ou celle d'après son contrat, si le village a guéri.
-  let base = met && DIALOGUES[npc + ':again'] ? npc + ':again' : npc;
-  for (const q of QUESTS) if (q.giver === npc && stateOf(q)?.step === 'done' && DIALOGUES[q.id + ':after']) base = q.id + ':after';
-
-  const q = current();
-  const st = q && stateOf(q);
-  if (q && !st && q.giver === npc)
-    return { ids: met ? [q.id + ':give'] : [npc, q.id + ':give'], after: () => accept(q) };
-  if (q && st && (st.step === 'given' || st.step === 'hunt')) {
-    if (q.witnesses.includes(npc) && !st.heard.includes(npc))
+  const base = baseLine(npc);
+  const list = open();
+  for (const q of list) {
+    const st = stateOf(q);
+    if (!st && q.giver === npc) return { ids: met ? [q.id + ':give'] : [npc, q.id + ':give'], after: () => accept(q) };
+    if (st && (st.step === 'given' || st.step === 'hunt') && q.witnesses.includes(npc) && !st.heard.includes(npc))
       return {
         ids: [`${q.id}:${npc}`],
         after: () => {
@@ -83,18 +107,19 @@ export function talkPlan(npc: string): Plan {
           saveWorld();
         },
       };
-    if (q.giver === npc) return { ids: [base, wakeHint(q)] };
+    if (st && st.step === 'report' && q.giver === npc)
+      return {
+        ids: [q.id + ':report'],
+        after: () => {
+          st.step = 'done';
+          w.en[npc] = (w.en[npc] ?? 0) + 1;
+          saveWorld();
+        },
+      };
   }
-  if (q && st && st.step === 'report' && q.giver === npc)
-    return {
-      ids: [q.id + ':report'],
-      after: () => {
-        st.step = 'done';
-        w.en[npc] = (w.en[npc] ?? 0) + 1;
-        saveWorld();
-      },
-    };
-  return { ids: [base] };
+  // Rien de nouveau : sa réplique ordinaire, et si c'est lui qui a donné un contrat en cours, ワケ rappelle où aller.
+  const mine = list.find((q) => q.giver === npc && stateOf(q) && ['given', 'hunt'].includes(stateOf(q)!.step));
+  return { ids: mine ? [base, wakeHint(mine)] : [base] };
 }
 
 export function accept(q: QuestDef): void {
@@ -104,9 +129,8 @@ export function accept(q: QuestDef): void {
 
 /** Examiner un objet : le site d'un contrat, ou le texte ordinaire. `ready` : on peut finir la phrase et chasser. */
 export function sitePlan(readId: string, fallback: string): Plan & { hunt?: QuestDef } {
-  const q = active();
-  const st = q && stateOf(q);
-  if (q && st && q.site === readId && (st.step === 'given' || st.step === 'hunt')) {
+  const q = actives().find((x) => x.site === readId && ['given', 'hunt'].includes(stateOf(x)!.step));
+  if (q) {
     if (missing(q).length) return { ids: [wakeHint(q)] };
     return { ids: [q.id + ':site'], hunt: q };
   }
@@ -169,30 +193,38 @@ export function wakeHint(q: QuestDef): string {
   return 'wake:hint';
 }
 
-/** Ce que montre le petit encart du contrat en cours, ou null. */
-export function hud(): { title: string; reading: string; fr: string; rows: { label: string; done: boolean; now: boolean }[] } | null {
-  const q = active();
-  const st = q && stateOf(q);
-  if (!q || !st) return null;
-  const heard = (n: string) => st.heard.includes(n);
-  const m = missing(q);
-  const rows = [
-    { label: `Témoins : ${[q.giver, ...q.witnesses].map((n) => (n === q.giver || heard(n) ? '✓' : '・') + (NAMES[n] ?? n)).join('　')}`, done: !m.length, now: !!m.length },
-    { label: `Finir sa phrase : ${q.siteFr}`, done: st.step === 'report', now: !m.length && st.step !== 'report' },
-    { label: `Rapporter à ${NAMES[q.giver]}`, done: false, now: st.step === 'report' },
-  ];
-  return { title: q.title, reading: q.reading, fr: q.fr, rows };
+export interface Hud {
+  title: string;
+  reading: string;
+  fr: string;
+  side: boolean;
+  rows: { label: string; done: boolean; now: boolean }[];
+}
+
+/** Ce que montrent les encarts des contrats en cours (celui de l'histoire d'abord). */
+export function hud(): Hud[] {
+  return actives().map((q) => {
+    const st = stateOf(q)!;
+    const heard = (n: string) => st.heard.includes(n);
+    const m = missing(q);
+    const rows = [
+      { label: `Témoins : ${[q.giver, ...q.witnesses].map((n) => (n === q.giver || heard(n) ? '✓' : '・') + (NAMES[n] ?? n)).join('　')}`, done: !m.length, now: !!m.length },
+      { label: `Finir sa phrase : ${q.siteFr}`, done: st.step === 'report', now: !m.length && st.step !== 'report' },
+      { label: `Rapporter à ${NAMES[q.giver]}`, done: false, now: st.step === 'report' },
+    ];
+    return { title: q.title, reading: q.reading, fr: q.fr, side: !!q.side, rows };
+  });
 }
 
 /** Marqueurs au-dessus des PNJ : « ！ » pour un contrat à prendre ou à rapporter, « ？ » pour un témoin. */
 export function marker(npc: string): '！' | '？' | null {
-  const q = current();
-  if (!q) return null;
-  const st = stateOf(q);
-  if (!st) return q.giver === npc ? '！' : null;
-  if (st.step === 'report') return q.giver === npc ? '！' : null;
-  if (st.step === 'given' || st.step === 'hunt') return q.witnesses.includes(npc) && !st.heard.includes(npc) ? '？' : null;
-  return null;
+  let m: '！' | '？' | null = null;
+  for (const q of open()) {
+    const st = stateOf(q);
+    if ((!st || st.step === 'report') && q.giver === npc) return '！';
+    if (st && (st.step === 'given' || st.step === 'hunt') && q.witnesses.includes(npc) && !st.heard.includes(npc)) m = '？';
+  }
+  return m;
 }
 
 /** Texte en clair d'une réplique (pour la phrase finale affichée en combat). */

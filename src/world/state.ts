@@ -16,9 +16,21 @@ export interface WorldSave {
   en: Record<string, number>; // 縁 : le lien avec chaque PNJ
   hunt?: string; // contrat dont la chasse est en cours
   after?: { quest: string; won: boolean; rank: string }; // résultat d'une chasse, à jouer au retour au village
+  flags: Record<string, boolean>; // le fil du chapitre : prologue vu, ワケ libéré, épilogue joué (ch1)
 }
 
-const fresh = (): WorldSave => ({ v: 1, scene: 'village', place: 'kirino', gate: 'north', seen: {}, hints: false, read: {}, log: [], notebook: [], quests: {}, en: {} });
+// Une nouvelle partie commence au col, avant le village : c'est là que le prologue libère ワケ.
+const fresh = (): WorldSave => ({ v: 1, scene: 'village', place: 'pass', gate: 'start', seen: {}, hints: false, read: {}, log: [], notebook: [], quests: {}, en: {}, flags: {} });
+
+/** Partie commencée avant la session 8 (sans prologue) : on la considère comme passée par le col. */
+function migrate(s: WorldSave): WorldSave {
+  if (!s.flags) s.flags = {};
+  if (!s.flags.prologue && s.place !== 'pass') {
+    s.flags.prologue = true;
+    s.flags.wake = true;
+  }
+  return s;
+}
 
 let cache: WorldSave | null = null;
 
@@ -26,7 +38,7 @@ export function world(): WorldSave {
   if (cache) return cache;
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
-    cache = s && s.v === 1 ? Object.assign(fresh(), s) : fresh();
+    cache = s && s.v === 1 ? migrate(Object.assign(fresh(), s)) : fresh();
   } catch {
     cache = fresh();
   }
@@ -43,6 +55,12 @@ export function saveWorld(): void {
 
 /** Remplace la partie en cours (chargement d'un emplacement de sauvegarde). */
 export function replaceWorld(s: WorldSave): void {
-  cache = Object.assign(fresh(), JSON.parse(JSON.stringify(s)));
+  cache = migrate(Object.assign(fresh(), JSON.parse(JSON.stringify(s))));
+  saveWorld();
+}
+
+/** Nouvelle partie : le monde repart du col. Les mots, la progression et les réglages suivent le joueur et restent. */
+export function newGame(): void {
+  cache = fresh();
   saveWorld();
 }
