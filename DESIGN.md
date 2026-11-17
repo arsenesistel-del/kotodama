@@ -216,6 +216,8 @@ Village → Enquête → Chasse → Retour → contrat suivant. Sous le capot, u
 - Le cœur de l'enquête est de deviner la fin qui manque. 「明日は雨が降る……」 : un avis (と思う), un doute (かもしれない) ou une rumeur (そうだ) ? Ce que disent les témoins permet de trancher.
 - Conclure, c'est dire la phrase complète à voix haute. Juste : la lame prend la bonne structure, dégâts ×1,5 et 崩 plus rapide. Fausse : on part quand même, sans bonus, et ワケ explique l'erreur après la chasse.
 
+*Mis en œuvre (session 6)* : deux témoins par contrat, marqués « ？ ». Sur le site, la créature répète le début de sa phrase et le joueur dit l'une des trois fins proposées (と思う, かもしれない, そうだ) : c'est l'échelle « Compléter ». Les questions aux témoins restent à l'échelle « Lire ».
+
 **Chasse**
 
 - Le combat v4 : 斬, 祓, 奥義, 崩, 怒, coups critiques, riposte, diagnostic des erreurs en français.

@@ -184,3 +184,11 @@ ul#rfails{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;
 #hunt.cine .top,#hunt.cine .cmd{opacity:0}.top{transition:opacity .35s}
 @media (max-width:760px){.cmd{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;height:auto;min-height:44vh}.win.mid{grid-column:1/3;grid-row:2}.banner{bottom:44vh}}
 @media (prefers-reduced-motion:reduce){.cue.pop,.fb.shake,.broken,.banner.in b,.banner.flash b{animation:none;clip-path:none}}
+
+/* session 6 : chasses de contrat */
+.banner em.edge{color:#f1ae41}
+.banner.final{flex-direction:column;gap:18px}
+.banner.final b{writing-mode:horizontal-tb;font-size:clamp(26px,3.6vw,48px);letter-spacing:.12em;line-height:1.5;color:#f2eaf1;clip-path:inset(0 100% 0 0)}
+.banner.final.in b{animation:writeh 1.6s .2s cubic-bezier(.5,0,.2,1) forwards}@keyframes writeh{to{clip-path:inset(0 -5% 0 0)}}
+.banner.final .sub{align-items:center;border-left:0;padding-left:0;text-align:center}
+.banner.final .sub span{font-size:18px}

@@ -11,6 +11,7 @@ import { judge, target, type Target } from './answer';
 import * as Voice from './voice';
 import { WORLD } from './assets';
 import { DIALOGUES, SPEAKERS, type Choice, type Line } from './dialogue';
+import { MEMORY_ART } from './quest-lines';
 import { LEX, MARKERS, MARKER_WHO } from './lexicon';
 import { MAPS } from './maps';
 import { placeById } from './places';
@@ -23,11 +24,19 @@ export const hooks: {
   load?: () => void; // une partie vient d'être chargée : relancer la bonne scène
   beforeSave?: () => void; // la scène range sa position avant une sauvegarde
   settings?: () => void; // les réglages ont changé (volume)
+  act?: (a: string) => void; // une phrase dite porte une action (déduction d'un contrat)
 } = {};
+
+// Peintures des souvenirs (session 6), affichées derrière la boîte pendant un souvenir.
+const MEM = import.meta.glob('../assets/memory/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const memUrl = (k: string) => Object.entries(MEM).find(([p]) => p.endsWith('/' + k + '.webp'))?.[1];
+// Les créatures parlent d'une voix d'écho (la phrase qu'elles répètent).
+const ECHO = new Set(['kage', 'yuragi', 'kuzure']);
 
 const root = document.createElement('div');
 root.id = 'vn';
 root.innerHTML = `
+  <div class="memory" hidden><img alt=""><b>記憶</b></div>
   <button class="menubtn" title="Menu (Échap)">メニュー</button>
   <div class="whisper" hidden>
     <img alt="">
@@ -188,6 +197,32 @@ const lineId = () => `${dlgId}:${idx}`;
 const cur = () => lines[idx];
 export const dialogOpen = () => !$('.dlg').hidden;
 
+/** Joue plusieurs dialogues à la suite, puis `done`. */
+export function openChain(ids: string[], done?: () => void): void {
+  const [first, ...rest] = ids.filter((i) => DIALOGUES[i]?.length);
+  if (!first) return done?.();
+  openDialog(first, () => (rest.length ? openChain(rest, done) : done?.()));
+}
+
+/** Souvenir : la peinture derrière la boîte, et les couleurs passées. */
+function setMemory(art: string | undefined): void {
+  const m = $('.memory');
+  const url = art && memUrl(art);
+  root.classList.toggle('remember', !!art);
+  if (!url) {
+    m.hidden = true;
+    return;
+  }
+  const img = $<HTMLImageElement>('.memory img');
+  if (!img.src.endsWith(url)) img.src = url;
+  if (m.hidden) {
+    m.hidden = false;
+    m.classList.remove('go');
+    void m.offsetWidth;
+    m.classList.add('go');
+  }
+}
+
 export function openDialog(id: string, done?: () => void): void {
   lines = DIALOGUES[id] ?? [];
   if (!lines.length) return done?.();
@@ -207,6 +242,8 @@ function showLine(): void {
   if (l.who === 'player') return showAnswer(l);
   const sp = SPEAKERS[l.who] ?? { name: l.who };
   const box = $('.dlg');
+  setMemory(MEMORY_ART[dlgId] ?? stack.map((s) => MEMORY_ART[s.id]).find(Boolean));
+  box.classList.toggle('echo', ECHO.has(l.who));
   box.classList.toggle('wake', l.who === 'wake');
   box.classList.toggle('sign', l.who === 'sign');
   $('.face').hidden = !sp.face;
@@ -343,6 +380,7 @@ function closeDialog(): void {
   $('.dlg').hidden = true;
   $('.whisper').hidden = true;
   $('.menubtn').hidden = false;
+  setMemory(undefined);
   closeWord();
   const cb = onEnd;
   onEnd = null;
@@ -368,8 +406,9 @@ export function advance(): void {
 function showAnswer(l: Line): void {
   const sp = SPEAKERS.player;
   const box = $('.dlg');
-  box.classList.remove('wake', 'sign', 'ok');
+  box.classList.remove('wake', 'sign', 'ok', 'echo');
   box.classList.add('answer');
+  setMemory(undefined);
   $('.face').hidden = !sp.face;
   if (sp.face) $<HTMLImageElement>('.face img').src = WORLD[sp.face];
   $('.name').innerHTML = rubyAll(sp.name) + '<small>声に出して</small>';
@@ -446,7 +485,7 @@ function miss(msg: string): void {
   Mic.arm(onHeard); // la prochaine tentative ne lit que ce qui sera dit après
 }
 
-function success(choice: number): void {
+function success(choice: number, passed = false): void {
   if (!ans) return;
   ans.done = true;
   Mic.disarm();
@@ -470,6 +509,8 @@ function success(choice: number): void {
     $('.text').innerHTML = renderTokens(tokens, said);
   }
   const goto = l.choices?.[choice]?.goto;
+  const action = l.choices?.[choice]?.act;
+  if (action) hooks.act?.(passed ? action + ':pass' : action);
   waitTimer = window.setTimeout(() => {
     if (!dialogOpen() || cur() !== l) return;
     if (goto) {
@@ -482,7 +523,7 @@ function success(choice: number): void {
 /** Passer une réponse (sans micro, ou après trois essais) : pas de mot compté, ワケ le dit. */
 function pass(): void {
   if (!ans || ans.done) return;
-  success(0);
+  success(0, true);
   $('.dlg').classList.remove('ok');
   $('.seal').hidden = true;
   toast('飛ばした <small>passé : rien n’est compté</small>');

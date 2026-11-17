@@ -1,6 +1,6 @@
 // Vérifie le générateur de phrases du combat : chaque phrase juste est acceptée,
 // chaque phrase déformée (祓) est refusée et reçoit un diagnostic en français.
-import { gen, matches, diagnose, ALLKEYS, STAGES, nextItem } from '../src/combat/engine.js';
+import { gen, matches, diagnose, ALLKEYS, STAGES, CONTRACT_STAGES, nextItem } from '../src/combat/engine.js';
 
 const N = 400;
 let total = 0;
@@ -17,7 +17,7 @@ for (const key of ALLKEYS) {
     }
   }
 }
-for (const stage of STAGES) {
+for (const stage of [...STAGES, ...CONTRACT_STAGES]) {
   let last = null;
   for (let i = 0; i < 200; i++) last = nextItem(stage, {}, last);
 }

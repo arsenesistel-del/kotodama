@@ -130,3 +130,26 @@
 #wui .card p { margin: 6px 0 10px; font-size: 14px; line-height: 1.6; color: rgba(236, 230, 218, 0.85); }
 #wui .card em { font-style: normal; font-size: 13px; color: rgba(236, 230, 218, 0.62); }
 #wui .card em kbd { font-family: inherit; font-size: 11px; padding: 0 5px; border: 1px solid rgba(236, 230, 218, 0.4); border-bottom-width: 2px; margin-right: 3px; }
+
+/* ---------- contrat en cours ---------- */
+#wui .quest {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  max-width: 330px;
+  padding: 10px 14px 10px 12px;
+  background: rgba(8, 8, 8, 0.72);
+  border-left: 2px solid #d4412b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+#wui .quest small { font-family: 'Yuji Syuku', serif; color: #d4412b; font-size: 13px; margin-right: 8px; }
+#wui .quest b { font-family: 'DotGothic16', monospace; font-size: 18px; font-weight: normal; }
+#wui .quest rt { font-size: 9px; opacity: 0.6; }
+#wui .quest em { display: block; font-style: normal; color: rgba(236, 230, 218, 0.6); font-size: 12px; margin-bottom: 4px; }
+#wui .quest ul { list-style: none; margin: 0; padding: 0; }
+#wui .quest li { color: rgba(236, 230, 218, 0.45); padding-left: 12px; position: relative; }
+#wui .quest li::before { content: '・'; position: absolute; left: -2px; }
+#wui .quest li.now { color: #ece6da; }
+#wui .quest li.now::before { content: '▸'; color: #d4412b; }
+#wui .quest li.done { text-decoration: line-through; text-decoration-color: rgba(212, 65, 43, 0.6); }

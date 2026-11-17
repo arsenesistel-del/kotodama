@@ -12,9 +12,13 @@ export interface WorldSave {
   read: Record<string, 1>; // répliques déjà lues (« dialogue:numéro »), pour 既読スキップ
   log: string[]; // バックログ : les dernières répliques affichées
   notebook: string[]; // 言葉帳 : marqueurs de 役割語 déjà rencontrés
+  quests: Record<string, import('./quests').QuestState>; // contrats acceptés (voir quests.ts)
+  en: Record<string, number>; // 縁 : le lien avec chaque PNJ
+  hunt?: string; // contrat dont la chasse est en cours
+  after?: { quest: string; won: boolean; rank: string }; // résultat d'une chasse, à jouer au retour au village
 }
 
-const fresh = (): WorldSave => ({ v: 1, scene: 'village', place: 'kirino', gate: 'north', seen: {}, hints: false, read: {}, log: [], notebook: [] });
+const fresh = (): WorldSave => ({ v: 1, scene: 'village', place: 'kirino', gate: 'north', seen: {}, hints: false, read: {}, log: [], notebook: [], quests: {}, en: {} });
 
 let cache: WorldSave | null = null;
 

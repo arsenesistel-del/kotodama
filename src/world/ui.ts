@@ -3,7 +3,7 @@
 import './ui.css';
 import * as VN from './vn';
 
-export { advance, dialogOpen, openDialog, openMenu, panelOpen, toggleTranslation, toast } from './vn';
+export { advance, dialogOpen, openChain, openDialog, openMenu, panelOpen, toggleTranslation, toast } from './vn';
 export { plain } from './text';
 
 const root = document.createElement('div');
@@ -13,6 +13,7 @@ root.innerHTML = `
   <div class="place" hidden><b></b><span class="seal">霧</span><em></em></div>
   <div class="prompt" hidden><kbd>Espace</kbd><span></span></div>
   <div class="hint" hidden></div>
+  <div class="quest" hidden><small>依頼</small><b><ruby></ruby></b><em></em><ul></ul></div>
   <div class="card" hidden><small class="ch"></small><b></b><span class="rd"></span><p></p><em></em></div>`;
 document.body.appendChild(root);
 
@@ -35,8 +36,9 @@ export function setPrompt(label: string | null): void {
   $('.prompt span').innerHTML = label;
 }
 
-export function placeCard(name: string, fr: string): void {
+export function placeCard(name: string, fr: string, seal = '霧'): void {
   const c = $('.place');
+  $('.place .seal').textContent = seal;
   $('.place b').textContent = name;
   $('.place em').textContent = fr;
   c.hidden = false;
@@ -75,4 +77,18 @@ export function placeInfo(p: { name: string; reading: string; fr: string; chapte
   $('.card .rd').textContent = p.reading;
   $('.card p').textContent = p.fr;
   $('.card em').innerHTML = action;
+}
+
+// ---------- contrat en cours, en haut à gauche ----------
+
+export function questHud(q: { title: string; reading: string; fr: string; rows: { label: string; done: boolean; now: boolean }[] } | null): void {
+  const box = $('.quest');
+  if (!q) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  $('.quest b ruby').innerHTML = `${q.title}<rt>${q.reading}</rt>`;
+  $('.quest em').textContent = q.fr;
+  $('.quest ul').innerHTML = q.rows.map((r) => `<li class="${r.done ? 'done' : ''}${r.now ? ' now' : ''}">${r.label}</li>`).join('');
 }

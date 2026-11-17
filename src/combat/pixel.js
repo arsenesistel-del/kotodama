@@ -161,7 +161,7 @@ function stamp(txt, bx, by, col, size, long) { P.stamps.push({ txt, bx, by, t: P
 const Pix = {
   S: null, // l'état partagé de scene.js (secousse, éclair, gel), branché au démarrage
   setMonster(st) {
-    P.mon = st ? { kind: st.id, stage: st, hp: 1, flinch: 0, dying: 0, born: P.t, stag: false, stagK: 0, rage: false, rageT: -9, glyphs: [...st.glyphs], seed: Math.random() * 100 } : null;
+    P.mon = st ? { kind: st.art || st.id, stage: st, hp: 1, flinch: 0, dying: 0, born: P.t, stag: false, stagK: 0, rage: false, rageT: -9, glyphs: [...st.glyphs], seed: Math.random() * 100 } : null;
     P.atk = null; P.slashes = []; P.stamps = []; P.decals = []; P.nums = []; P.parts = []; P.down = 0; P.won = 0; P.dashT = -9; P.hitT = -9; if (this.S) this.S.tele = null;
   },
   setHp(r) { if (P.mon) P.mon.hp = clamp(r, 0, 1); },

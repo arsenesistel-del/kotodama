@@ -1,6 +1,6 @@
 # 言霊 Kotodama : fichier de passation
 
-À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 5 (le combat en pixel). Le document de conception est `DESIGN.md`, à la racine du dépôt.
+À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 6 (la boucle des contrats). Le document de conception est `DESIGN.md`, à la racine du dépôt.
 
 ## 0. Où est le jeu
 
@@ -22,6 +22,26 @@ Règles de conception qui en découlent :
 Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ## 2. État au 17 novembre
+
+### Session 6 : la boucle complète
+
+Branche `session-6-boucle`, PR #5. Les sessions 2 à 5 sont fusionnées dans `main`.
+
+- **Trois contrats jouables de bout en bout**, dans l'ordre du DESIGN : 水車小屋の影 (太一, と思う, créature 欠けの影), 峠の噂 (おみつ, そうだ, 揺らぎ), 吊り橋 (萬作, かもしれない, 崩れ). Chacun s'ouvre quand le précédent est rapporté. Définitions dans `src/world/quests.ts`, répliques dans `src/world/quest-lines.ts`.
+- **Don** : le PNJ demande de l'aide (si on ne l'a jamais rencontré, sa première rencontre passe avant). Le joueur répond à voix haute, comme partout. Un sceau 依 et le titre calligraphié s'affichent.
+- **Enquête** : deux témoins par contrat, marqués « ？ » au-dessus de la tête. On leur pose les questions à voix haute (phrases affichées, échelle « Lire »). Ce qu'ils disent tranche entre avis, doute et rumeur : 源造 « ne doute jamais, n'écoute pas les rumeurs », 与平 « n'a pas vu la mère, il rapporte ce qu'on lui a dit », 萬作 jeune « parlait tout seul et penchait la tête ». ワケ résume en français après chaque témoin.
+- **Site** (examiner : le moulin, le 地蔵 du col, le panneau du pont suspendu) : trop tôt, ワケ dit qui reste à interroger. Sinon, la créature répète le début de sa phrase (voix d'écho, texte vermillon qui tremble) et le joueur la finit à voix haute parmi trois fins (と思う, かもしれない, そうだ). Le choix est enregistré, juste ou non. Passer avec 飛ばす ne donne jamais le bonus.
+- **Chasse** (`huntContract` dans `game.js`) : créature et décor de la v4 en pixel, structures du contrat (`CONTRACT_STAGES` dans `engine.js`). Bonne déduction : bannière 刃, dégâts ×1,5, jauge 崩 ×1,5, un 欠片 de plus. À l'apaisement, la créature dit enfin sa phrase entière, écrite en grand et dite avec la voix de celui qui l'avait laissée en suspens. Le résultat propose « 村へ戻る » ; après une défaite, « Rechasser » ou retour, et ワケ dit que la phrase n'a pas bougé (on peut refaire la déduction).
+- **Souvenir** : au retour, deux à quatre répliques doublées sur une peinture à l'encre plein écran (sceau 記憶) : 源造 et 太一 au moulin, 与平 au col dans la brume, 萬作 jeune et お露 au pont. Puis ワケ dit si la déduction était juste, et sinon pourquoi.
+- **Retour** : le joueur rapporte à voix haute avec 「…」と言っていました. Le PNJ reparle avec la fin retrouvée (太一 : なれると思う ; おみつ : 元気にしているそうよ ; 萬作 : 間に合うかもしれん). 縁 +1 (toast), sceau 了. Ensuite sa réplique ordinaire change (`c1:after`… : la roue tourne, おみつ colporte une rumeur sur 権兵衛, 萬作 soupçonne la colline). La roue du moulin tourne une fois le premier contrat fini.
+- **Encart du contrat** en haut à gauche : titre, témoins cochés, étape en cours. Marqueurs « ！ » (contrat à prendre ou à rapporter) et « ？ » (témoin) en pixel au-dessus des PNJ.
+- 55 nouvelles répliques doublées (ElevenLabs eleven_v4, 2 244 crédits). Nouvelles voix : Akio pour 源造, Koichi pour 与平, Ryo pour 萬作 jeune, Akane pour お露 ; 太一 garde chinyaku dans son souvenir. Les échos des créatures sont la voix de leur auteur, chuchotée, ralentie et passée dans `aecho` (ffmpeg). 3 peintures de souvenir (570 crédits), `src/assets/memory/`, originaux dans `art/raw/`.
+- Lexique : environ 130 mots ajoutés, marqueurs あたし (町娘) et ん (négation des vieux). `npm test` autorise une fin perdue dans les dialogues guéris (`HEALED`). Nouvelles fautes reconnues : だ après un verbe devant と思う ou そうだ, だ devant かもしれない.
+- `bg_temple.webp` et `p_slash.webp` retirés.
+- Vérifié dans Chrome sans écran (mode test, réponses tapées) : les trois contrats de bout en bout, avec une faute diagnostiquée au rapport, une déduction fausse, une défaite puis une victoire, les souvenirs, les répliques d'après, le repaire depuis la carte. Aucune erreur JavaScript. `npm test` et `npm run build` passent. Pas vérifié à la voix réelle.
+- Pas fait : le prologue au col, le boss 霧の主 et l'épilogue, les portraits illustrés, l'écran du 言葉帳. Le vocabulaire des chasses reste celui de la v4 (moderne).
+
+Ajouter un contrat : une entrée dans `QUESTS` (`quests.ts`), une chasse dans `CONTRACT_STAGES`, ses dialogues `id:give`, `id:<témoin>`, `id:site` (avec `guess`), `id:final`, `id:memory`, `id:right`, `id:wrong`, `id:report`, `id:after` dans `quest-lines.ts`, la peinture dans `MEMORY_ART`, puis `npm test` et les voix.
 
 ### Session 5 : le combat en pixel
 
@@ -146,7 +166,7 @@ Style : peinture à l'encre sumi-e, dark fantasy, adulte. Os pâle et gris sur n
 
 Outil : connecteur ElevenLabs, `creative_generate_image`, modèle `gpt-image-2.5-sunburst`, 1 variation, 190 crédits par image. Flow : `kU3JafHN2mqqQZTk0WH1`. Sortie 1280×720 quoi qu'on demande. Récupération : `creative_get_generations` donne une URL signée (2 h), téléchargeable avec curl. Ne jamais relancer un appel pour réessayer, ça refacture.
 
-Dépensé : 10 images (1 900 crédits), puis les voix du chapitre 1 (environ 1 800). Le compte affiche 40 000 crédits par mois, 3 693 utilisés au 17 novembre.
+Dépensé : 10 images (1 900 crédits), puis les voix du chapitre 1 (environ 1 800), puis en session 6 les voix des contrats (1 674) et 3 peintures de souvenir (570). Le compte affiche 40 000 crédits par mois, 5 937 utilisés au 17 novembre.
 
 Gabarit de prompt pour une créature ou un personnage :
 
@@ -162,14 +182,14 @@ Détourage : `tools/process.py` (alpha tiré de la luminosité + silhouette remp
 
 - `index.html`, `src/main.ts` : point d'entrée, création du jeu Phaser.
 - `src/scenes/BootScene.ts` : chargement des images, des sons et des polices, puis village ou carte selon la sauvegarde. `src/scenes/CombatScene.ts` : pose le combat v4. `src/scenes/VillageScene.ts` : le village en pixel. `src/scenes/WorldMapScene.ts` : la carte du monde.
-- `src/world/` : le monde. `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
+- `src/world/` : le monde. `quests.ts` (contrats : état, qui dit quoi, sites, marqueurs, encart), `quest-lines.ts` (leurs répliques, `HEALED`, `MEMORY_ART`), `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
 - `src/assets/world/` : tuiles, personnages, sons du pack Ninja Adventure.
 - `src/combat/engine.js` : générateur de phrases, vérification (`matches`), diagnostic (`diagnose`), statuts, les six distorsions (`STAGES`).
 - `src/combat/scene.js` : fond à l'encre du titre et du repaire, état partagé, sons synthétisés. `src/combat/pixel.js` : la chasse en pixel (décors, créature, sabreur, ワケ, effets, sceaux).
 - `src/mic.js` : le micro (Web Speech API), partagé par le combat et les dialogues. `src/world/answer.ts` : vérification des réponses dites. `src/world/voice.ts`, `voicefile.ts` : lecture des voix. `src/assets/voice/` : les voix et `index.json`.
 - `src/combat/game.js` : déroulé d'une chasse, sauvegarde, repaire, résultat.
 - `src/combat/shell.html`, `src/combat/style.css` : interface du combat. `src/combat/assets.ts` : URLs des images. `src/combat/mount.ts` : montage dans la page.
-- `src/assets/combat/` : peintures du titre et du repaire (WebP), `px/` : les créatures en pixel. `art/raw/` : originaux.
+- `src/assets/combat/` : peintures du titre et du repaire (WebP), `px/` : les créatures en pixel. `src/assets/memory/` : peintures des souvenirs. `art/raw/` : originaux.
 - `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes ; `scripts/check-dialogue.mjs` : vérification des répliques. Les trois tournent avec `npm test`.
 - `scripts/voice-lines.mjs` : répliques à doubler et texte pour le moteur de voix. `tools/voicevox.mjs` : voix des figurants avec VOICEVOX, sur le PC d'Arsène.
 - `tools/process.py` : détourage. `tools/pixelize.py` : version pixel des créatures. `tools/test_micro.html` : page de test du micro.
@@ -180,7 +200,7 @@ Travailler en local : `npm install`, puis `npm run dev` (jeu sur http://localhos
 
 Mode test : ajouter `#debug` à l'adresse. Un champ texte remplace le micro et `window.KD` expose l'état (`KD.answer()` dit la bonne phrase, `KD.say(texte)` injecte une phrase, `KD.wrong()` dit la phrase déformée).
 
-Dans le village, `window.KDW` : `KDW.go(x, y)` téléporte (en tuiles), `KDW.state()` donne position, direction, cible et dialogue, `KDW.talk()` parle. Sur la carte, `window.KDM.go('kirino')` voyage, `KDM.sel()` donne le lieu choisi. Pour repartir de zéro dans le monde : `localStorage.removeItem('kotodama.world.v1')`.
+Dans le village, `window.KDW` : `KDW.go(x, y)` téléporte (en tuiles), `KDW.state()` donne position, direction, cible et dialogue, `KDW.talk()` parle, `KDW.talkTo('taichi')` parle à quelqu'un ou examine un objet (`site-mill`, `site-jizo`, `sign-bridge`) d'où qu'on soit, `KDW.quests()` et `KDW.hud()` donnent l'état des contrats. Sur la carte, `window.KDM.go('kirino')` voyage, `KDM.sel()` donne le lieu choisi. Pour repartir de zéro dans le monde : `localStorage.removeItem('kotodama.world.v1')`.
 
 Dialogues, `window.KDV` : `KDV.state()` (réplique, défilement, オート, スキップ, panneau, bulle), `KDV.open('mansaku')` ouvre un dialogue, `KDV.text()` donne le HTML de la réplique. Réponses : `KDV.answer(k)` dit la bonne phrase (choix k), `KDV.wrong()` la première faute prévue, `KDV.say(texte)` n'importe quoi ; `KDV.state().answer` et `.voice`. En mode test, un champ sous la phrase remplace le micro (Entrée envoie). Attention, en Chrome sans écran Phaser tourne au ralenti : le dialogue d'arrivée met une dizaine de secondes à s'ouvrir. Mots et réglages : `kotodama.words.v1`, `kotodama.settings.v1`, `kotodama.slots.v1`.
 
@@ -192,7 +212,7 @@ Lore retenu : voir `DESIGN.md`. Le monde tenait par la parole, les phrases laiss
 
 Plan validé par Arsène, dans cet ordre :
 1. Fait en v4 : animations du combat, interface, variété.
-2. Premier village : fait en session 2 pour la carte, le déplacement, les PNJ et la carte du monde, en session 3 pour le système de dialogue et les aides, en session 4 pour les voix et les réponses à voix haute. Reste, dans l'ordre : contrats donnés par les PNJ avec enquête et retour, prologue au col qui libère ワケ, portraits illustrés. Détail du chapitre 1 dans `DESIGN.md`.
+2. Premier village : fait en session 2 pour la carte, le déplacement, les PNJ et la carte du monde, en session 3 pour le système de dialogue et les aides, en session 4 pour les voix et les réponses à voix haute. Contrats avec enquête et retour : faits en session 6. Reste, dans l'ordre : le cœur de la brume (enquête sur la colline, boss 霧の主, souvenir de 萬作 et お露, épilogue), prologue au col qui libère ワケ, portraits illustrés, vocabulaire des chasses accordé au monde. Détail du chapitre 1 dans `DESIGN.md`.
 3. Forge : les fragments servent à forger des lames (une lame = une famille de structures : avis, cause, condition...) et des sceaux à équiper qui changent les règles (moins de temps pour plus de dégâts, sans furigana pour un bonus).
 4. Traques : une faute répétée fait naître sa propre créature, à rechasser.
 5. Nombres et compteurs avec le modèle kana en local.
