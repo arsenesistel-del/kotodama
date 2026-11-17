@@ -192,3 +192,7 @@ ul#rfails{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;
 .banner.final.in b{animation:writeh 1.6s .2s cubic-bezier(.5,0,.2,1) forwards}@keyframes writeh{to{clip-path:inset(0 -5% 0 0)}}
 .banner.final .sub{align-items:center;border-left:0;padding-left:0;text-align:center}
 .banner.final .sub span{font-size:18px}
+/* Suivi caché (session 7) : furigana d'un mot demandé, pâle quand il s'installe ; ce qui vient d'être acquis. */
+.cue ruby.aid rt{visibility:visible}.cue ruby.aid.fade rt{opacity:.42}
+.acq{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0;font-size:14px}.acq:empty{display:none}
+.acq b{font-family:var(--disp);font-weight:400;color:#e0806b;margin-right:4px}.acq span{border:1px solid rgba(212,65,43,.5);padding:2px 9px;color:#f1d6cd}

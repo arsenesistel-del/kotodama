@@ -2,6 +2,7 @@
 // Séparés de la sauvegarde du monde : ils suivent le joueur, pas la partie.
 import { isKanji, knownKanji } from './kanji';
 import { LEX } from './lexicon';
+import * as Progress from './progress';
 import type { Token } from './text';
 
 export type Speed = 0 | 1 | 2 | 3; // ゆっくり, ふつう, はやい, 一瞬
@@ -48,8 +49,11 @@ export const AUTO_WAIT = [
 ];
 
 // ---------- mots ----------
+// Ce que le joueur sait lire vient du suivi caché (progress.ts) : un mot dont il a demandé le sens garde son
+// furigana, qui pâlit à mesure qu'il le redit juste sur plusieurs jours, disparaît quand le mot est acquis,
+// et revient, pâle, si le mot s'oublie. Le bouton ふりがな de la fiche reste un choix manuel qui passe avant.
 
-/** État d'un mot : `asked` = lectures demandées ; `furi` = furigana forcé (true) ou masqué (false) par le joueur. */
+/** État d'un mot : `asked` = sens demandés ; `furi` = furigana forcé (true) ou masqué (false) par le joueur. */
 interface WordState {
   asked: number;
   furi?: boolean;
@@ -57,12 +61,25 @@ interface WordState {
   said?: number; // fois où le joueur l'a prononcé juste, dans une réponse validée par le micro
 }
 
-/** Prononcé juste autant de fois, un mot dont il avait demandé la lecture est réputé acquis : son furigana s'efface. */
-export const ACQUIRED = 3;
 const words: Record<string, WordState> = load(WKEY, {} as Record<string, WordState>);
 export const saveWords = () => store(WKEY, words);
 
 const idOf = (t: Token) => t.key ?? t.text;
+
+// Reprise de la session 4 : « acquis » voulait dire trois fois prononcé juste (furigana masqué automatiquement),
+// et toucher un mot forçait son furigana. Ces deux réglages automatiques deviennent des cartes du suivi caché.
+Progress.migrate('words', (at) => {
+  for (const [id, w] of Object.entries(words)) {
+    if (w.furi === false && (w.said ?? 0) >= 3 && w.asked > 0) {
+      Progress.seed('w:' + id, Progress.ACQ_W, 1, at);
+      delete w.furi;
+    } else if (w.asked > 0) {
+      Progress.seed('w:' + id, Math.max(0.4, Math.min(1.5, 0.4 * 1.4 ** (w.said ?? 0))), 1, at);
+      if (w.furi === true) delete w.furi;
+    }
+  }
+  saveWords();
+});
 
 export function wordState(t: Token): WordState {
   return (words[idOf(t)] ??= { asked: 0, seen: 0 });
@@ -74,6 +91,16 @@ export function hardKanji(t: Token): boolean {
   return [...t.text].some((c) => isKanji(c) && !known.has(c));
 }
 
+/** Aide du suivi caché pour ce mot, ou null si la règle par défaut s'applique. */
+function aidOf(t: Token): 'full' | 'fade' | 'off' | null {
+  const c = Progress.card(Progress.wordId(t));
+  if (!c) return null;
+  const byDefault = !!(t.key && LEX[t.key]?.name) || hardKanji(t);
+  // Un mot réputé lisible qu'il n'a jamais demandé reste sans furigana, même suivi.
+  if (!byDefault && c.l === 0) return null;
+  return Progress.aid(Progress.wordId(t));
+}
+
 /** Faut-il afficher le furigana de ce mot ? Seulement s'il a des kanji et que le joueur ne sait pas le lire. */
 export function wantsRuby(t: Token, peek = false): boolean {
   if (!t.segs.some((s) => s.ruby)) return false;
@@ -81,15 +108,22 @@ export function wantsRuby(t: Token, peek = false): boolean {
   if (settings.furigana === 'none') return false;
   const w = words[idOf(t)];
   if (w?.furi !== undefined) return w.furi;
+  const a = aidOf(t);
+  if (a) return a !== 'off';
   if (t.key && LEX[t.key]?.name) return true;
   return hardKanji(t);
 }
 
-/** Le joueur a demandé le sens d'un mot : s'il a des kanji, le jeu le considère désormais illisible pour lui. */
+/** Furigana pâle : le mot s'installe, ou il s'oublie. */
+export function fadedRuby(t: Token): boolean {
+  if (settings.furigana !== 'auto' || words[idOf(t)]?.furi !== undefined) return false;
+  return aidOf(t) === 'fade';
+}
+
+/** Le joueur a demandé le sens d'un mot : pour le suivi caché, c'est un raté. */
 export function markAsked(t: Token): void {
-  const w = wordState(t);
-  w.asked++;
-  if (t.segs.some((s) => s.ruby) && w.furi === undefined) w.furi = true;
+  wordState(t).asked++;
+  if (Progress.tracked(t)) Progress.review(Progress.wordId(t), 1);
   saveWords();
 }
 
@@ -103,28 +137,28 @@ export function noteSeen(tokens: Token[]): void {
   saveWords();
 }
 
-/** Le joueur vient de dire juste une phrase : chaque mot compte. Rend les mots qui viennent d'être acquis. */
+/** Le joueur vient de dire juste une phrase : chaque mot compte. Rend les mots, autrefois demandés, qui viennent d'être acquis. */
 export function noteSaid(tokens: Token[]): Token[] {
   const got: Token[] = [];
+  const seen = new Set<string>();
   for (const t of tokens) {
-    if (t.punct) continue;
+    if (!Progress.tracked(t) || seen.has(Progress.wordId(t))) continue;
+    seen.add(Progress.wordId(t));
     const w = wordState(t);
     w.said = (w.said ?? 0) + 1;
-    if (w.said >= ACQUIRED && w.furi === true && w.asked > 0) {
-      w.furi = false;
-      got.push(t);
-    }
+    if (Progress.review(Progress.wordId(t), 3) && Progress.card(Progress.wordId(t))!.l > 0) got.push(t);
   }
   saveWords();
   return got;
 }
 
 export function wordsStats(): { asked: number; hidden: number } {
-  const v = Object.values(words);
-  return { asked: v.filter((w) => w.furi === true).length, hidden: v.filter((w) => w.furi === false).length };
+  const c = Progress.counts();
+  return { asked: c.words - c.wordsAcq, hidden: c.wordsAcq };
 }
 
 export function resetWords(): void {
   for (const k of Object.keys(words)) delete words[k];
   saveWords();
+  Progress.forgetWords();
 }

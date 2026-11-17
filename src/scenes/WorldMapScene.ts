@@ -4,6 +4,7 @@ import { MAP_H, MAP_W, paintInkMap } from '../world/inkmap';
 import { PLACES, ROUTE, placeById, type Place } from '../world/places';
 import { saveWorld, world } from '../world/state';
 import * as UI from '../world/ui';
+import { maybeWeekly } from '../world/vn';
 
 const VERMILION = 0xd4412b;
 const BONE = 0xece6da;
@@ -46,6 +47,9 @@ export class WorldMapScene extends Phaser.Scene {
     this.board.add(this.add.text(92, 360, '地図', { fontFamily: '"Yuji Syuku", serif', fontSize: '15px', color: '#f6ece6' }).setOrigin(0.5));
 
     for (const p of PLACES) this.addPlace(p);
+
+    // Première partie d'une nouvelle semaine : le bilan de la précédente.
+    this.time.delayedCall(1200, () => maybeWeekly());
 
     this.ring = this.add.circle(0, 0, 22).setStrokeStyle(1.5, BONE, 0.85).setFillStyle();
     this.board.add(this.ring);

@@ -1,5 +1,16 @@
 /* ===== 言霊 : moteur de phrases (sans DOM) ===== */
 const R = a => a[Math.floor(Math.random() * a.length)];
+// Préférences du suivi caché (src/world/progress.ts, branchées par game.js) : `key(k)` pondère une structure,
+// `entry(e, type)` un couple de mots. Sans elles (tests), le tirage reste uniforme.
+let BIAS = { key: null, entry: null };
+function setBias(b) { BIAS = Object.assign({ key: null, entry: null }, b || {}); }
+function pickW(list, f) {
+  if (!f) return R(list);
+  const ws = list.map(x => Math.max(0.05, f(x) || 0)), tot = ws.reduce((a, b) => a + b, 0);
+  let r = Math.random() * tot;
+  for (let i = 0; i < list.length; i++) { r -= ws[i]; if (r <= 0) return list[i]; }
+  return list[list.length - 1];
+}
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const alt = (...xs) => '(?:' + [...new Set(xs.flat().filter(Boolean))].map(esc).join('|') + ')';
 function norm(s) { return (s || '').normalize('NFKC').replace(/[\s、。，,．.！？!?「」『』…〜~]/g, ''); }
@@ -96,7 +107,7 @@ function pred(type, e, form, frame) {
 }
 function genJoint(frame, type, forms) {
   const F = FRAMES[frame], form = R(forms || ['aff', 'aff', 'neg', 'past']);
-  const e = R({ na: NA, no: NO, ia: IA, ve: VE }[type]);
+  const e = pickW({ na: NA, no: NO, ia: IA, ve: VE }[type], BIAS.entry && (x => BIAS.entry(x, type)));
   const subj = e[0], dict = type === 'ia' ? e[1][0] + 'い' : e[1][0], dictR = type === 'ia' ? e[1][1] + 'い' : e[1][1];
   const part = type === 've' ? '(?:は|が)' : 'は';
   const head = alt(subj) + part, p = pred(type, e, form, frame);
@@ -176,7 +187,7 @@ const CONTRACT_STAGES = [
 ];
 function nextItem(stage, stats, last) {
   const w = { neuf: 3, essai: 3, casse: 4, lent: 2, reflexe: 1 };
-  const pool = stage.keys.map(k => [k, w[statusOf(stats[k])]]), tot = pool.reduce((s, x) => s + x[1], 0);
+  const pool = stage.keys.map(k => [k, w[statusOf(stats[k])] * (BIAS.key ? BIAS.key(k) : 1)]), tot = pool.reduce((s, x) => s + x[1], 0);
   for (let tries = 0; tries < 20; tries++) {
     let r = Math.random() * tot, k = pool[0][0];
     for (const [kk, ww] of pool) { r -= ww; if (r <= 0) { k = kk; break; } }
@@ -185,4 +196,4 @@ function nextItem(stage, stats, last) {
   }
   return gen(R(stage.keys), stage.forms);
 }
-export { gen, genJoint, broken, matches, diagnose, norm, med, ALLKEYS, STAGES, CONTRACT_STAGES, nextItem, keyLabel, statusOf, FRAMES, TYPES, FORMS };
+export { setBias, gen, genJoint, broken, matches, diagnose, norm, med, ALLKEYS, STAGES, CONTRACT_STAGES, nextItem, keyLabel, statusOf, FRAMES, TYPES, FORMS };

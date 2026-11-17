@@ -1,6 +1,6 @@
 # 言霊 Kotodama : fichier de passation
 
-À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 6 (la boucle des contrats). Le document de conception est `DESIGN.md`, à la racine du dépôt.
+À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 7 (la progression). Le document de conception est `DESIGN.md`, à la racine du dépôt.
 
 ## 0. Où est le jeu
 
@@ -22,6 +22,33 @@ Règles de conception qui en découlent :
 Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ## 2. État au 17 novembre
+
+### Session 7 : la progression
+
+Branche `session-7-progression`, fusionnée dans `main` et en ligne.
+
+- **Suivi caché façon FSRS** (`src/world/fsrs.ts`, `src/world/progress.ts`, clé `kotodama.progress.v1`). Chaque mot (`w:霧`) et chaque structure (`s:omou.na` : と思う après un adjectif な ; 17 en tout, les quatre fins sur les quatre types de mots et `s:inyou`, 「…」と言っていた) a une stabilité et une difficulté, avec les formules et les paramètres par défaut de FSRS-5. Ce que le jeu note :
+  - dialogue, réponse validée : chaque mot dit juste (pas les particules ni les fins) et chaque structure de la phrase, note 3 ;
+  - dialogue, faute de jointure diagnostiquée : la structure de la phrase, note 1 (un « pas reconnu » ne note rien, ça peut être le micro) ;
+  - toucher un mot pour son sens : note 1 sur ce mot ;
+  - chasse : la structure, 4 si juste en moins de 3,5 s, 3 si juste, 2 si juste après 9 s, 1 si ratée ; les deux mots de la phrase, 3 si juste, 1 si la lecture a été demandée (F) ;
+  - une phrase passée avec 飛ばす ne compte pas (avant, ses mots comptaient : corrigé).
+- **Même jour** : un raté compte une fois de suite, et la reprise qui le suit aussi ; dix réussites dans la même chasse ne valent pas dix jours. Le jour de jeu commence à 4 h. Une première fois ne peut pas être « facile ».
+- **Acquis** : stabilité de 10 jours pour un mot, 14 pour une structure. En pratique, un mot demandé puis redit juste un jour sur deux est acquis vers le 6e jour, une structure dite juste chaque jour vers le 5e. Toasts 覚えた (mot) et 型を覚えた (structure), et en fin de chasse la liste de ce qui vient d'être acquis.
+- **Aides qui s'effacent** :
+  - furigana dans les dialogues : un mot demandé garde son furigana ; il pâlit à partir de 3 jours de stabilité, disparaît quand le mot est acquis, et revient pâle si le mot s'oublie (souvenir sous 80 %). Un mot réputé lisible et jamais demandé reste sans furigana. Le bouton ふりがな de la fiche reste un choix manuel qui passe avant ;
+  - lectures en chasse (mode « sur demande ») : un mot dont il a demandé la lecture l'affiche tout seul, pâle puis plus du tout, de la même façon ;
+  - l'ancienne règle (trois fois prononcé juste le même jour, furigana masqué) est remplacée. Reprise automatique des données des sessions 4 à 6 : mots acquis et mots demandés deviennent des cartes, l'historique des chasses aussi.
+- **Les chasses suivent l'échéance** (`setBias` dans `engine.js`) : une structure à revoir pèse 1,8, une neuve 1,3, une acquise 0,6 ; un couple de mots dont un a été demandé et n'est pas acquis revient trois fois plus souvent.
+- **Bilan de la semaine (記録)** : メニュー → 記録. Semaine du lundi au dimanche : minutes parlées, phrases dites (et % justes), structures acquises, mots acquis, chasses gagnées ; minutes jour par jour (aujourd'hui en vermillon, détail au survol) ; grille des 17 structures (未 jamais dite, 中 en cours, 得 acquise, 忘 s'oublie, ↺ à revoir, trait sous la case : ce qu'elle tient, détail au survol) ; ce qui a été acquis ; ce que le jeu va ramener. Flèches ‹ › pour les semaines passées. Il s'ouvre tout seul à la première partie d'une nouvelle semaine si la précédente a été jouée.
+- **Minutes parlées** : mesurées par le micro (`src/mic.js`), de la première à la dernière transcription d'une phrase, plus 0,7 s de délai, 20 s au plus par phrase.
+- **Sauvegarde** : 設定 → 記録 : 書き出す télécharge toute la partie (toutes les clés `kotodama.*` : monde, emplacements, mots, progression, combat, réglages) dans `kotodama-AAAA-MM-JJ.json` ; 読み込む la recharge (sur un autre navigateur aussi) et relance le jeu. Le jeu demande aussi à Chrome de ne pas effacer ses données (`navigator.storage.persist`). La progression suit le joueur, pas l'emplacement de sauvegarde, comme les mots.
+- Corrigé au passage : les boutons de 設定 ne réagissaient plus depuis la session 4 (ils étaient pris pour des boutons ▶ de la バックログ).
+- `npm test` lance aussi `scripts/check-progress.mjs` : courbe d'oubli, rythme d'acquisition d'un mot et d'une structure, mot oublié dont l'aide revient, structure reconnue dans chaque réponse du joueur (29), bilan de la semaine (lundi, jour qui commence à 4 h, ouverture automatique une fois), export et import.
+- Vérifié dans Chrome sans écran (mode test, réponses tapées) : reprise d'une partie de la session 6, bilan qui s'ouvre tout seul, réponses justes et fausses notées, furigana pâle, bilan de la semaine et de la précédente, une chasse puis une deuxième où le mot demandé garde sa lecture, export puis import. Aucune erreur JavaScript. Pas vérifié à la voix réelle (les minutes parlées réelles restent à confirmer).
+- Pas fait : un mot touché souvent ne revient pas plus souvent dans les dialogues (ils sont écrits à l'avance), le butin ne dépend pas encore de l'échéance.
+
+Pour suivre : `window.KDV.progress` (le module), `KDV.record(n)` ouvre le bilan d'il y a n semaines. Repartir de zéro : `localStorage.removeItem('kotodama.progress.v1')`.
 
 ### Session 6 : la boucle complète
 
@@ -182,7 +209,7 @@ Détourage : `tools/process.py` (alpha tiré de la luminosité + silhouette remp
 
 - `index.html`, `src/main.ts` : point d'entrée, création du jeu Phaser.
 - `src/scenes/BootScene.ts` : chargement des images, des sons et des polices, puis village ou carte selon la sauvegarde. `src/scenes/CombatScene.ts` : pose le combat v4. `src/scenes/VillageScene.ts` : le village en pixel. `src/scenes/WorldMapScene.ts` : la carte du monde.
-- `src/world/` : le monde. `quests.ts` (contrats : état, qui dit quoi, sites, marqueurs, encart), `quest-lines.ts` (leurs répliques, `HEALED`, `MEMORY_ART`), `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
+- `src/world/` : le monde. `fsrs.ts` (courbe d'oubli), `progress.ts` (suivi caché, journal du jour, bilan, sauvegarde complète), `record.ts` (écran 記録), `quests.ts` (contrats : état, qui dit quoi, sites, marqueurs, encart), `quest-lines.ts` (leurs répliques, `HEALED`, `MEMORY_ART`), `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
 - `src/assets/world/` : tuiles, personnages, sons du pack Ninja Adventure.
 - `src/combat/engine.js` : générateur de phrases, vérification (`matches`), diagnostic (`diagnose`), statuts, les six distorsions (`STAGES`).
 - `src/combat/scene.js` : fond à l'encre du titre et du repaire, état partagé, sons synthétisés. `src/combat/pixel.js` : la chasse en pixel (décors, créature, sabreur, ワケ, effets, sceaux).
@@ -190,7 +217,7 @@ Détourage : `tools/process.py` (alpha tiré de la luminosité + silhouette remp
 - `src/combat/game.js` : déroulé d'une chasse, sauvegarde, repaire, résultat.
 - `src/combat/shell.html`, `src/combat/style.css` : interface du combat. `src/combat/assets.ts` : URLs des images. `src/combat/mount.ts` : montage dans la page.
 - `src/assets/combat/` : peintures du titre et du repaire (WebP), `px/` : les créatures en pixel. `src/assets/memory/` : peintures des souvenirs. `art/raw/` : originaux.
-- `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes ; `scripts/check-dialogue.mjs` : vérification des répliques. Les trois tournent avec `npm test`.
+- `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes ; `scripts/check-dialogue.mjs` : vérification des répliques ; `scripts/check-progress.mjs` : vérification du suivi caché. Les quatre tournent avec `npm test`.
 - `scripts/voice-lines.mjs` : répliques à doubler et texte pour le moteur de voix. `tools/voicevox.mjs` : voix des figurants avec VOICEVOX, sur le PC d'Arsène.
 - `tools/process.py` : détourage. `tools/pixelize.py` : version pixel des créatures. `tools/test_micro.html` : page de test du micro.
 - `.github/workflows/deploy.yml` : tests, construction et mise en ligne.
@@ -202,7 +229,7 @@ Mode test : ajouter `#debug` à l'adresse. Un champ texte remplace le micro et `
 
 Dans le village, `window.KDW` : `KDW.go(x, y)` téléporte (en tuiles), `KDW.state()` donne position, direction, cible et dialogue, `KDW.talk()` parle, `KDW.talkTo('taichi')` parle à quelqu'un ou examine un objet (`site-mill`, `site-jizo`, `sign-bridge`) d'où qu'on soit, `KDW.quests()` et `KDW.hud()` donnent l'état des contrats. Sur la carte, `window.KDM.go('kirino')` voyage, `KDM.sel()` donne le lieu choisi. Pour repartir de zéro dans le monde : `localStorage.removeItem('kotodama.world.v1')`.
 
-Dialogues, `window.KDV` : `KDV.state()` (réplique, défilement, オート, スキップ, panneau, bulle), `KDV.open('mansaku')` ouvre un dialogue, `KDV.text()` donne le HTML de la réplique. Réponses : `KDV.answer(k)` dit la bonne phrase (choix k), `KDV.wrong()` la première faute prévue, `KDV.say(texte)` n'importe quoi ; `KDV.state().answer` et `.voice`. En mode test, un champ sous la phrase remplace le micro (Entrée envoie). Attention, en Chrome sans écran Phaser tourne au ralenti : le dialogue d'arrivée met une dizaine de secondes à s'ouvrir. Mots et réglages : `kotodama.words.v1`, `kotodama.settings.v1`, `kotodama.slots.v1`.
+Dialogues, `window.KDV` : `KDV.state()` (réplique, défilement, オート, スキップ, panneau, bulle), `KDV.open('mansaku')` ouvre un dialogue, `KDV.text()` donne le HTML de la réplique. Réponses : `KDV.answer(k)` dit la bonne phrase (choix k), `KDV.wrong()` la première faute prévue, `KDV.say(texte)` n'importe quoi ; `KDV.state().answer` et `.voice`. En mode test, un champ sous la phrase remplace le micro (Entrée envoie). Attention, en Chrome sans écran Phaser tourne au ralenti : le dialogue d'arrivée met une dizaine de secondes à s'ouvrir. Mots et réglages : `kotodama.words.v1`, `kotodama.settings.v1`, `kotodama.slots.v1`. Progression : `kotodama.progress.v1`.
 
 Ajouter un lieu en pixel : une carte dans `src/world/maps/` (terrain en lettres, objets du catalogue, PNJ, arrivées, sorties), l'inscrire dans `maps/index.ts`, ouvrir le lieu dans `places.ts`, écrire ses répliques dans `dialogue.ts`. `npm test` dit si quelque chose est inaccessible.
 
