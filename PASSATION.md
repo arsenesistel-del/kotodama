@@ -25,7 +25,7 @@ Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ### Session 5 : le combat en pixel
 
-Branche `session-5-combat-pixel`, construite sur la session 4. Ordre de fusion : #2, la session 4, puis celle-ci. La session n'a pas pu pousser (dépôt non autorisé pour elle) : le commit est dans le projet, `claude/session-5-combat-pixel.patch`. Pour le mettre sur GitHub, depuis le dépôt : `git fetch`, `git checkout -b session-5-combat-pixel origin/session-4-voix`, `git am session-5-combat-pixel.patch`, `git push -u origin session-5-combat-pixel`, puis ouvrir la PR.
+Branche `session-5-combat-pixel`, PR #4 : https://github.com/arsenesistel-del/kotodama/pull/4. Construite sur la session 4 : fusionner #2, puis #3, puis #4.
 
 - **La chasse est de profil, façon vieux Final Fantasy** : la créature à gauche, le sabreur et ワケ à droite, trois fenêtres en bas. Le titre et le repaire restent à l'encre.
 - **Moteur inchangé** : `engine.js` et `game.js` n'ont pas bougé. 斬, 祓, 奥義, 崩, 怒, coups critiques, riposte, diagnostic des erreurs, rangs et 欠片 marchent comme en v4. Seul le rendu a changé : `src/combat/pixel.js` reprend l'interface de l'ancien rendu (`slash`, `stagger`, `enrage`, `monsterAttack`, `die`…).
