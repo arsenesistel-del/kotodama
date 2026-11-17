@@ -4,6 +4,8 @@ RPG à la voix, entièrement en japonais : la lame ne coupe que si la phrase est
 
 Jouer : https://arsenesistel-del.github.io/kotodama/ (Chrome sur PC, micro requis). Mode texte sans micro : ajouter `#debug` à l'adresse.
 
+Commandes : ZQSD ou flèches pour marcher, Maj pour courir, Espace pour parler ou lire, T pour la traduction de ワケ, M pour couper le son.
+
 - `DESIGN.md` : le document de conception.
 - `PASSATION.md` : l'état du projet et comment reprendre.
 - `CREDITS.md` : les ressources et leurs licences.

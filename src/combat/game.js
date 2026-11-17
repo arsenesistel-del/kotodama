@@ -214,6 +214,7 @@ $('#void').addEventListener('click', voidLast);
 $('#skip').addEventListener('click', () => { if (H.phase !== 'riposte') return; clearTimers(); Mic.disarm(); $('#acts').hidden = true; nextExchange(); });
 $('#again').addEventListener('click', () => go(() => startHunt(H.stage)));
 $('#back').addEventListener('click', () => go(hub));
+$('#tomap').addEventListener('click', () => { clearTimers(); Mic.disarm(); window.dispatchEvent(new Event('kotodama:map')); });
 $('#sound').addEventListener('click', () => { save.sound = !save.sound; Snd.set(save.sound); persist(); hub(); });
 $('#showhow').addEventListener('click', () => { $('#howto').hidden = false; });
 $('#okhow').addEventListener('click', () => { save.intro = true; persist(); $('#howto').hidden = true; });

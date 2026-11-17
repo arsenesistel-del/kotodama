@@ -1,0 +1,229 @@
+/* Interface du monde : encre, os pâle, un seul vermillon. */
+#wui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  color: #ece6da;
+  -webkit-font-smoothing: antialiased;
+}
+#wui[hidden], #wui [hidden] { display: none !important; }
+
+#wui .vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(8, 8, 10, 0.55) 100%);
+}
+
+/* ---------- boîte de dialogue ---------- */
+#wui .dlg {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  width: min(880px, calc(100vw - 32px));
+  min-height: 132px;
+  box-sizing: border-box;
+  display: flex;
+  gap: 18px;
+  padding: 16px 22px 18px 16px;
+  background: linear-gradient(180deg, rgba(14, 13, 12, 0.94), rgba(8, 8, 8, 0.96));
+  border: 1px solid rgba(236, 230, 218, 0.22);
+  border-left: 3px solid #d4412b;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+  cursor: pointer;
+  animation: dlgIn 0.18s ease-out;
+}
+@keyframes dlgIn { from { opacity: 0; transform: translate(-50%, 8px); } }
+#wui .dlg .face {
+  flex: none;
+  width: 100px;
+  height: 100px;
+  border: 1px solid rgba(236, 230, 218, 0.25);
+  background: #1a1816;
+  display: grid;
+  place-items: center;
+}
+#wui .dlg .face img { width: 96px; height: 96px; image-rendering: pixelated; }
+#wui .dlg.wake .face { border-color: rgba(212, 65, 43, 0.6); }
+#wui .dlg .body { flex: 1; min-width: 0; }
+#wui .dlg .name {
+  font-family: 'DotGothic16', monospace;
+  font-size: 17px;
+  color: #e0806b;
+  letter-spacing: 0.08em;
+  margin: 2px 0 8px;
+  min-height: 1.2em;
+}
+#wui .dlg .name rt { font-size: 9px; color: rgba(236, 230, 218, 0.6); }
+#wui .dlg .text {
+  font-family: 'DotGothic16', monospace;
+  font-size: 24px;
+  line-height: 2.05;
+  letter-spacing: 0.04em;
+  white-space: pre-wrap;
+}
+#wui .dlg .text rt {
+  font-size: 11px;
+  letter-spacing: 0;
+  color: rgba(236, 230, 218, 0.72);
+}
+#wui .dlg .text.fr {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 19px;
+  line-height: 1.6;
+  color: #f1e9db;
+}
+#wui .dlg.sign .text { color: #f4ecd9; }
+#wui .dlg .tr {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(236, 230, 218, 0.18);
+  font-size: 16px;
+  color: rgba(236, 230, 218, 0.8);
+}
+#wui .dlg .tr i {
+  font-style: normal;
+  font-family: 'DotGothic16', monospace;
+  color: #d4412b;
+  margin-right: 10px;
+}
+#wui .dlg .wakebtn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(212, 65, 43, 0.7);
+  background: transparent;
+  color: #d4412b;
+  font-family: 'Yuji Syuku', serif;
+  font-size: 18px;
+  cursor: pointer;
+}
+#wui .dlg .wakebtn:hover { background: rgba(212, 65, 43, 0.15); }
+#wui .dlg .next {
+  position: absolute;
+  right: 18px;
+  bottom: 10px;
+  font-size: 12px;
+  color: #d4412b;
+  opacity: 0;
+}
+#wui .dlg .next.on { opacity: 1; animation: bob 0.9s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(3px); } }
+
+/* ---------- invite d'action ---------- */
+#wui .prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  background: rgba(10, 10, 10, 0.78);
+  border: 1px solid rgba(236, 230, 218, 0.2);
+  font-family: 'DotGothic16', monospace;
+  font-size: 17px;
+  letter-spacing: 0.05em;
+}
+#wui .prompt kbd {
+  font-family: 'Zen Kaku Gothic New', sans-serif;
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid rgba(236, 230, 218, 0.45);
+  border-bottom-width: 2px;
+  color: rgba(236, 230, 218, 0.85);
+}
+#wui .prompt small { font-family: 'Zen Kaku Gothic New', sans-serif; font-size: 12px; color: rgba(236, 230, 218, 0.6); margin-left: 4px; }
+#wui .prompt rt { font-size: 8px; }
+
+/* ---------- titre du lieu ---------- */
+#wui .place {
+  position: absolute;
+  top: 12vh;
+  right: 9vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  opacity: 0;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.8);
+}
+#wui .place.go { animation: place 4.6s ease-in-out forwards; }
+@keyframes place {
+  0% { opacity: 0; transform: translateY(-8px); }
+  15%, 75% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+#wui .place b {
+  font-family: 'Yuji Syuku', 'Shippori Mincho', serif;
+  font-weight: 400;
+  font-size: 56px;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.15em;
+  color: #f2ecdf;
+}
+#wui .place .seal {
+  font-family: 'Yuji Syuku', serif;
+  font-size: 20px;
+  color: #f4e9e4;
+  background: #d4412b;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+}
+#wui .place em {
+  font-style: normal;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: rgba(236, 230, 218, 0.8);
+  writing-mode: horizontal-tb;
+}
+
+/* ---------- aide des touches ---------- */
+#wui .hint {
+  position: absolute;
+  left: 22px;
+  top: 20px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: rgba(236, 230, 218, 0.82);
+  background: rgba(8, 8, 8, 0.6);
+  padding: 10px 14px;
+  border-left: 2px solid #d4412b;
+  animation: dlgIn 0.3s ease-out;
+}
+#wui .hint kbd {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 0 5px;
+  border: 1px solid rgba(236, 230, 218, 0.4);
+  border-bottom-width: 2px;
+  margin-right: 2px;
+}
+
+/* ---------- fiche d'un lieu (carte du monde) ---------- */
+#wui .card {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  width: min(340px, calc(100vw - 56px));
+  padding: 16px 20px 16px;
+  background: rgba(10, 9, 8, 0.86);
+  border: 1px solid rgba(236, 230, 218, 0.18);
+  border-right: 3px solid #d4412b;
+  animation: dlgIn 0.18s ease-out;
+}
+#wui .card .ch { display: block; font-family: 'Yuji Syuku', serif; font-size: 13px; color: #d4412b; letter-spacing: 0.2em; }
+#wui .card b { font-family: 'Yuji Syuku', 'Shippori Mincho', serif; font-weight: 400; font-size: 34px; letter-spacing: 0.08em; margin-right: 10px; }
+#wui .card .rd { font-family: 'DotGothic16', monospace; font-size: 13px; color: rgba(236, 230, 218, 0.6); }
+#wui .card p { margin: 6px 0 10px; font-size: 14px; line-height: 1.6; color: rgba(236, 230, 218, 0.85); }
+#wui .card em { font-style: normal; font-size: 13px; color: rgba(236, 230, 218, 0.62); }
+#wui .card em kbd { font-family: inherit; font-size: 11px; padding: 0 5px; border: 1px solid rgba(236, 230, 218, 0.4); border-bottom-width: 2px; margin-right: 3px; }
