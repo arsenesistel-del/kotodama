@@ -1,6 +1,6 @@
 # 言霊 Kotodama : fichier de passation
 
-À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 3 (les dialogues). Le document de conception est `DESIGN.md`, à la racine du dépôt.
+À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 4 (les voix). Le document de conception est `DESIGN.md`, à la racine du dépôt.
 
 ## 0. Où est le jeu
 
@@ -23,9 +23,31 @@ Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ## 2. État au 17 novembre
 
+### Session 4 : les voix
+
+Branche `session-4-voix`, PR à part, construite sur la session 3 (PR #2). Les deux PR sont à fusionner dans l'ordre : #2, puis celle de la session 4.
+
+- **Le joueur répond à voix haute** (échelle « Lire » du DESIGN). Une réplique `who: 'player'` dans `dialogue.ts` affiche la phrase à dire, avec le portrait du sabreur et 「声に出して」. Le micro écoute, le jeu juge, et la phrase validée reçoit un sceau 言, un son, puis la suite. Faute connue : diagnostic en français (« Il manque だ avant と思います. ») et nouvel essai. Après trois ratés, ou sans micro (pas Chrome, micro refusé), le bouton 飛ばす passe sans rien compter.
+- **Choix** : une réplique du joueur avec `choices` propose plusieurs phrases (一, 二). Celle qu'il dit mène à son dialogue `goto`, puis on reprend après le choix. Exemple : commander du thé ou des dango chez おみつ.
+- **Vérification** (`src/world/answer.ts`), sur le principe du moteur du combat : chaque mot balisé `{漢字|かな}` est accepté en kanji ou en kana, la ponctuation est ignorée, les katakana sont ramenés en hiragana, quelques écritures de Chrome sont unifiées (吊橋, 君…), un はい d'ouverture peut manquer. Les fautes prévues sont tirées automatiquement de la phrase attendue : だ qui manque ou な à la place devant と思います, だ après un adjectif en い, だ ou rien à la place du な de なんです, な après un verbe devant んです, だ devant かもしれません, いかった. Une variante proposée par Chrome n'est acceptée que si la transcription principale n'est pas une faute diagnostiquée.
+- **Micro partagé** : le `Mic` du combat est sorti dans `src/mic.js`, utilisé par le combat et les dialogues. Une seule écoute continue pour tout le jeu ; le micro s'ouvre à la première réponse demandée.
+- **14 réponses à dire** dans le village, toutes en japonais poli et standard, chacune sur une jointure : 萬作 (旅の者です, なんですか, かもしれませんね), おみつ (choix, おいしいと思います, いるんですか, 好きなんです), 太一 (見たんですか, じゃないかもしれません, 大丈夫だと思います, 強い子だと思います), おたね (冬なんですね), 権兵衛 (寒かったんですか). Les villageois, eux, n'emploient toujours pas les fins perdues : 萬作 commence à parler du pont et retombe sur la météo, おみつ « n'arrive pas à le dire ».
+- **Voix** : les 24 répliques japonaises des PNJ sont doublées, générées à l'avance avec ElevenLabs (eleven_v4) et rangées en OGG mono dans `src/assets/voice/` (816 Ko), avec `index.json` (texte, voix, moteur). Voix : JUN pour 萬作, Konomi pour おみつ, chinyaku pour 太一, Chieko pour おたね, Kiyo pour 権兵衛. Le texte envoyé au moteur met en kana les noms propres et les mots que la voix pourrait mal lire (`scripts/voice-lines.mjs`). Les villageois parlent lentement à l'étranger (balise `[slowly]`).
+- **Figurants et VOICEVOX** : le moteur VOICEVOX n'a pas pu tourner dans la session (téléchargé, mais son lancement est bloqué). おたね et 権兵衛 ont donc des voix ElevenLabs pour l'instant. `tools/voicevox.mjs` les refait avec VOICEVOX sur le PC d'Arsène (VOICEVOX ouvert, puis `node tools/voicevox.mjs`).
+- **Création de voix** : la création d'une voix d'enfant pour 太一 a été refusée par ElevenLabs (règles de sécurité). D'où chinyaku, une voix de la bibliothèque qui fait aussi les jeunes garçons.
+- **Écoute** : la voix part avec chaque réplique. Boutons 聞 (réécouter, R) et 遅 (lentement, L, à 0,72). En オート, la suite attend la fin de la voix. Dans la バックログ, ▶ réécoute chaque réplique doublée ; les phrases dites par le joueur y apparaissent aussi. 設定 a un volume ボイス à part.
+- **Acquisition d'un mot** (DESIGN) : chaque mot d'une phrase validée au micro compte. Un mot dont le joueur avait demandé la lecture et qu'il a prononcé juste trois fois perd son furigana (toast 覚えた).
+- `npm test` vérifie aussi chaque réponse : la bonne phrase est acceptée en clair et en kana, chaque faute prévue est refusée et diagnostiquée. Il signale les répliques sans voix ou dont le texte a changé depuis l'enregistrement.
+- Vérifié dans Chrome sans écran (mode test, réponses tapées) : voix de chaque réplique, réponses justes en kanji et en kana, fautes diagnostiquées (な/だ devant んです, だ après い, だ devant かもしれない), choix et retour au dialogue, trois ratés puis 飛ばす, バックログ avec ▶, lecture lente. Une chasse complète au combat avec le micro partagé. Aucune erreur JavaScript. Pas vérifié à la voix réelle.
+- Crédits ElevenLabs : 3 693 utilisés sur 40 000 ce mois (images 1 900, voix et tests 1 793).
+
+Pour ajouter une réplique doublée : l'écrire dans `dialogue.ts`, `npm test` la signale sans voix, `node scripts/voice-lines.mjs --missing` donne le texte à envoyer, la générer (voix et balises dans `index.json`), l'encoder en OGG mono dans `src/assets/voice/<fichier>.ogg` et compléter `index.json`.
+
+Pour ajouter une réponse du joueur : `{ who: 'player', jp: '…', fr: '…' }` dans le dialogue, ou `choices: [{ jp, fr, goto }]`. `node scripts/check-dialogue.mjs --show` affiche les fautes que le jeu reconnaîtra.
+
 ### Session 3 : les dialogues
 
-Branche `session-3-dialogues`. Système de dialogue façon visual novel, dans `src/world/vn.ts` et `vn.css` (l'ancienne boîte de `ui.ts` est remplacée).
+Branche `session-3-dialogues`, PR #2 : https://github.com/arsenesistel-del/kotodama/pull/2 (appliquée depuis le correctif, la session 3 n'avait pas pu pousser). Système de dialogue façon visual novel, dans `src/world/vn.ts` et `vn.css` (l'ancienne boîte de `ui.ts` est remplacée).
 
 - Boîte de VN : portrait, nom avec furigana, texte qui défile, ▼ d'attente. Menu rapide sous le texte, en japonais : セーブ, ロード, オート, スキップ, バックログ, 設定. Bouton メニュー en haut à droite (village et carte), ou Échap.
 - バックログ : les 120 dernières répliques, gardées dans la sauvegarde du monde. Mots touchables, bouton 訳 pour afficher les traductions. B ou molette vers le haut sur la boîte.
@@ -40,7 +62,7 @@ Branche `session-3-dialogues`. Système de dialogue façon visual novel, dans `s
 - `npm test` vérifie aussi les répliques (`scripts/check-dialogue.mjs`) : chaque kanji a sa lecture, chaque mot est dans le lexique, chaque marqueur existe, aucune fin perdue avant guérison (と思う, かもしれない, そうだ, んだ). `node scripts/check-dialogue.mjs --show` affiche le découpage.
 - Vérifié dans Chrome sans écran : arrivée, dialogues des trois PNJ et des figurants, bulle de ワケ et marqueurs, fiche d'un mot et furigana qui apparaît, masquage du furigana, F, オート jusqu'au bout, スキップ sur du lu et refus sur du non lu, バックログ avec traductions, セーブ puis ロード (retour à la position), 設定, menu sur la carte qui bloque les touches du jeu. Aucune erreur JavaScript.
 
-Pas encore fait dans les dialogues : répondre à voix haute, voix et réécoute, vitesse lente, écran du 言葉帳, acquisition d'un mot en le prononçant juste (prévu avec le micro), portraits illustrés.
+Pas encore fait dans les dialogues : écran du 言葉帳, portraits illustrés (le reste est fait en session 4).
 
 Écrire une réplique : la mettre dans `dialogue.ts` avec la lecture de chaque kanji (`{霧|きり}`), lancer `npm test`, ajouter au lexique les mots qu'il signale.
 
@@ -108,7 +130,7 @@ Style : peinture à l'encre sumi-e, dark fantasy, adulte. Os pâle et gris sur n
 
 Outil : connecteur ElevenLabs, `creative_generate_image`, modèle `gpt-image-2.5-sunburst`, 1 variation, 190 crédits par image. Flow : `kU3JafHN2mqqQZTk0WH1`. Sortie 1280×720 quoi qu'on demande. Récupération : `creative_get_generations` donne une URL signée (2 h), téléchargeable avec curl. Ne jamais relancer un appel pour réessayer, ça refacture.
 
-Dépensé : 10 images, 1 900 crédits sur 30 000.
+Dépensé : 10 images (1 900 crédits), puis les voix du chapitre 1 (environ 1 800). Le compte affiche 40 000 crédits par mois, 3 693 utilisés au 17 novembre.
 
 Gabarit de prompt pour une créature ou un personnage :
 
@@ -128,10 +150,12 @@ Détourage : `tools/process.py` (alpha tiré de la luminosité + silhouette remp
 - `src/assets/world/` : tuiles, personnages, sons du pack Ninja Adventure.
 - `src/combat/engine.js` : générateur de phrases, vérification (`matches`), diagnostic (`diagnose`), statuts, les six distorsions (`STAGES`).
 - `src/combat/scene.js` : rendu canvas (décor, créature, sabreur, effets) et sons synthétisés.
-- `src/combat/game.js` : micro (`Mic`), déroulé d'une chasse, sauvegarde, repaire, résultat.
+- `src/mic.js` : le micro (Web Speech API), partagé par le combat et les dialogues. `src/world/answer.ts` : vérification des réponses dites. `src/world/voice.ts`, `voicefile.ts` : lecture des voix. `src/assets/voice/` : les voix et `index.json`.
+- `src/combat/game.js` : déroulé d'une chasse, sauvegarde, repaire, résultat.
 - `src/combat/shell.html`, `src/combat/style.css` : interface du combat. `src/combat/assets.ts` : URLs des images. `src/combat/mount.ts` : montage dans la page.
 - `src/assets/combat/` : images du combat (WebP). `art/raw/` : originaux.
 - `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes ; `scripts/check-dialogue.mjs` : vérification des répliques. Les trois tournent avec `npm test`.
+- `scripts/voice-lines.mjs` : répliques à doubler et texte pour le moteur de voix. `tools/voicevox.mjs` : voix des figurants avec VOICEVOX, sur le PC d'Arsène.
 - `tools/process.py` : détourage. `tools/test_micro.html` : page de test du micro.
 - `.github/workflows/deploy.yml` : tests, construction et mise en ligne.
 - `DESIGN.md`, `PASSATION.md`, `CREDITS.md`.
@@ -142,7 +166,7 @@ Mode test : ajouter `#debug` à l'adresse. Un champ texte remplace le micro et `
 
 Dans le village, `window.KDW` : `KDW.go(x, y)` téléporte (en tuiles), `KDW.state()` donne position, direction, cible et dialogue, `KDW.talk()` parle. Sur la carte, `window.KDM.go('kirino')` voyage, `KDM.sel()` donne le lieu choisi. Pour repartir de zéro dans le monde : `localStorage.removeItem('kotodama.world.v1')`.
 
-Dialogues, `window.KDV` : `KDV.state()` (réplique, défilement, オート, スキップ, panneau, bulle), `KDV.open('mansaku')` ouvre un dialogue, `KDV.text()` donne le HTML de la réplique. Mots et réglages : `kotodama.words.v1`, `kotodama.settings.v1`, `kotodama.slots.v1`.
+Dialogues, `window.KDV` : `KDV.state()` (réplique, défilement, オート, スキップ, panneau, bulle), `KDV.open('mansaku')` ouvre un dialogue, `KDV.text()` donne le HTML de la réplique. Réponses : `KDV.answer(k)` dit la bonne phrase (choix k), `KDV.wrong()` la première faute prévue, `KDV.say(texte)` n'importe quoi ; `KDV.state().answer` et `.voice`. En mode test, un champ sous la phrase remplace le micro (Entrée envoie). Attention, en Chrome sans écran Phaser tourne au ralenti : le dialogue d'arrivée met une dizaine de secondes à s'ouvrir. Mots et réglages : `kotodama.words.v1`, `kotodama.settings.v1`, `kotodama.slots.v1`.
 
 Ajouter un lieu en pixel : une carte dans `src/world/maps/` (terrain en lettres, objets du catalogue, PNJ, arrivées, sorties), l'inscrire dans `maps/index.ts`, ouvrir le lieu dans `places.ts`, écrire ses répliques dans `dialogue.ts`. `npm test` dit si quelque chose est inaccessible.
 
@@ -152,7 +176,7 @@ Lore retenu : voir `DESIGN.md`. Le monde tenait par la parole, les phrases laiss
 
 Plan validé par Arsène, dans cet ordre :
 1. Fait en v4 : animations du combat, interface, variété.
-2. Premier village : fait en session 2 pour la carte, le déplacement, les PNJ et la carte du monde, en session 3 pour le système de dialogue et les aides. Reste, dans l'ordre : répondre aux PNJ à voix haute (échelle « Lire » du DESIGN, avec le micro déjà en place), voix japonaises ElevenLabs des trois PNJ, contrats donnés par les PNJ avec enquête et retour, prologue au col qui libère ワケ, portraits illustrés. Détail du chapitre 1 dans `DESIGN.md`.
+2. Premier village : fait en session 2 pour la carte, le déplacement, les PNJ et la carte du monde, en session 3 pour le système de dialogue et les aides, en session 4 pour les voix et les réponses à voix haute. Reste, dans l'ordre : contrats donnés par les PNJ avec enquête et retour, prologue au col qui libère ワケ, portraits illustrés. Détail du chapitre 1 dans `DESIGN.md`.
 3. Forge : les fragments servent à forger des lames (une lame = une famille de structures : avis, cause, condition...) et des sceaux à équiper qui changent les règles (moins de temps pour plus de dégâts, sans furigana pour un bonus).
 4. Traques : une faute répétée fait naître sa propre créature, à rechasser.
 5. Nombres et compteurs avec le modèle kana en local.

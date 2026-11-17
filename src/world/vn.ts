@@ -3,9 +3,14 @@
 // バックログ ; 既読スキップ ; オート ; emplacements de sauvegarde ; réglages.
 // Les aides : furigana seulement sur les mots que le joueur ne sait pas lire, sens en français au toucher,
 // et ワケ qui souffle la traduction et signale chaque nouveau marqueur de 役割語.
+// Session 4 : les personnages parlent (voix générées à l'avance, réécoute normale ou lente), et le joueur leur
+// répond à voix haute ; le micro et le moteur vérifient la phrase (answer.ts).
 import './vn.css';
+import { Mic, SR } from '../mic.js';
+import { judge, target, type Target } from './answer';
+import * as Voice from './voice';
 import { WORLD } from './assets';
-import { DIALOGUES, SPEAKERS, type Line } from './dialogue';
+import { DIALOGUES, SPEAKERS, type Choice, type Line } from './dialogue';
 import { LEX, MARKERS, MARKER_WHO } from './lexicon';
 import { MAPS } from './maps';
 import { placeById } from './places';
@@ -33,8 +38,20 @@ root.innerHTML = `
     <div class="body">
       <div class="name"></div>
       <div class="text"></div>
+      <div class="ans" hidden>
+        <div class="mic"><i></i><span></span></div>
+        <div class="heard"></div>
+        <div class="verdict"></div>
+        <input class="dbg" hidden placeholder="mode test : tape la phrase, puis Entrée" autocomplete="off">
+        <button class="pass" data-a="pass" hidden>飛ばす<small>passer</small></button>
+      </div>
     </div>
     <button class="wakebtn" title="ワケ traduit (T)">訳</button>
+    <div class="vbtns">
+      <button data-a="replay" title="Réécouter (R)">聞</button>
+      <button data-a="slow" title="Réécouter lentement (L)">遅</button>
+    </div>
+    <div class="seal" hidden>言</div>
     <div class="next">▼</div>
     <nav class="qm">
       <button data-a="save" title="Sauvegarder">セーブ</button>
@@ -124,9 +141,25 @@ const rubyAll = (src: string) =>
 
 const charCount = (tokens: Token[]) => tokens.reduce((s, t) => s + t.text.length, 0);
 
+/** Une réplique par son identifiant « dialogue:numéro », ou « dialogue:numéro/choix » pour la phrase choisie. */
 function lineById(id: string): Line | undefined {
-  const k = id.lastIndexOf(':');
-  return DIALOGUES[id.slice(0, k)]?.[Number(id.slice(k + 1))];
+  const [base, ch] = id.split('/');
+  const k = base.lastIndexOf(':');
+  const l = DIALOGUES[base.slice(0, k)]?.[Number(base.slice(k + 1))];
+  if (l && ch !== undefined && l.choices) {
+    const c: Choice | undefined = l.choices[Number(ch)];
+    return c ? { who: l.who, jp: c.jp, fr: c.fr } : undefined;
+  }
+  return l;
+}
+
+const DEBUG = /debug/.test(location.hash + location.search);
+const SFX = { ok: WORLD['audio/accept'], miss: WORLD['audio/cancel'] };
+function sfx(k: keyof typeof SFX): void {
+  if (!SFX[k]) return;
+  const a = new Audio(SFX[k]);
+  a.volume = Math.min(1, P.settings.volume * 0.7);
+  a.play().catch(() => undefined);
 }
 
 // ---------- dialogue ----------
@@ -146,6 +179,10 @@ let ctrlSkip = false;
 let peek = false;
 let trOpen = false;
 let marks: string[] = [];
+// Dialogues imbriqués : un choix du joueur mène à son dialogue, puis on reprend après la réplique du choix.
+let stack: { id: string; idx: number }[] = [];
+// Réponse en cours : les phrases possibles, les essais ratés, et si elle est déjà validée.
+let ans: { targets: Target[]; tries: number; done: boolean; texts: string[] } | null = null;
 
 const lineId = () => `${dlgId}:${idx}`;
 const cur = () => lines[idx];
@@ -156,6 +193,7 @@ export function openDialog(id: string, done?: () => void): void {
   if (!lines.length) return done?.();
   dlgId = id;
   idx = 0;
+  stack = [];
   onEnd = done ?? null;
   $('.dlg').hidden = false;
   $('.menubtn').hidden = true;
@@ -164,6 +202,9 @@ export function openDialog(id: string, done?: () => void): void {
 
 function showLine(): void {
   const l = cur();
+  Voice.stop();
+  endAnswer();
+  if (l.who === 'player') return showAnswer(l);
   const sp = SPEAKERS[l.who] ?? { name: l.who };
   const box = $('.dlg');
   box.classList.toggle('wake', l.who === 'wake');
@@ -172,6 +213,7 @@ function showLine(): void {
   if (sp.face) $<HTMLImageElement>('.face img').src = WORLD[sp.face];
   $('.name').innerHTML = rubyAll(sp.name);
   $('.wakebtn').hidden = !l.jp;
+  $('.vbtns').hidden = !Voice.hasVoice(lineId());
   $('.text').classList.toggle('fr', !l.jp);
   $('.next').classList.remove('on');
   closeWord();
@@ -205,6 +247,7 @@ function showLine(): void {
   clearTimeout(waitTimer);
   clearInterval(typeTimer);
   const fast = skipping() && !!w.read[id];
+  if (!fast) speak(false);
   const ms = P.MS_PER_CHAR[P.settings.textSpeed] * (l.jp ? 1 : 0.45);
   if (fast || ms === 0) return finishLine();
   if (skipping()) setSkip(false); // réplique jamais lue : la スキップ s'arrête
@@ -219,6 +262,13 @@ function showLine(): void {
 
 function paint(): void {
   const l = cur();
+  if (l.who === 'player' && ans) {
+    if (ans.done) return;
+    $('.text').innerHTML = l.choices
+      ? l.choices.map((c, k) => `<div class="choice"><b>${'一二三四'[k]}</b><span>${renderTokens(tokensOf(c.jp), `${lineId()}/${k}`, Infinity, peek)}</span></div>`).join('')
+      : renderTokens(tokens, lineId(), Infinity, peek);
+    return;
+  }
   $('.text').innerHTML = l.jp ? renderTokens(tokens, lineId(), shown, peek) : esc(l.fr.slice(0, shown));
 }
 
@@ -237,6 +287,8 @@ function scheduleNext(): void {
   const w = world();
   if (skipping() && w.read[lineId()]) waitTimer = window.setTimeout(next, 70);
   else if (auto) {
+    if (cur()?.who === 'player') return; // une réponse se dit, elle ne défile pas
+    if (Voice.playing() === lineId()) return; // la fin de la voix relancera l'オート
     const a = P.AUTO_WAIT[P.settings.autoSpeed];
     // Une bulle de ワケ ouverte laisse un peu plus de temps pour la lire.
     const extra = $('.whisper').hidden ? 0 : 1600;
@@ -246,16 +298,48 @@ function scheduleNext(): void {
 
 function next(): void {
   clearTimeout(waitTimer);
+  Voice.stop();
   world().read[lineId()] = 1;
   saveWorld();
   idx++;
+  while (idx >= lines.length && stack.length) {
+    const back = stack.pop()!;
+    dlgId = back.id;
+    lines = DIALOGUES[dlgId] ?? [];
+    idx = back.idx + 1;
+  }
   if (idx < lines.length) return showLine();
   closeDialog();
+}
+
+/** Un choix du joueur mène à son dialogue ; à la fin, on reprend après la réplique du choix. */
+function jump(to: string): void {
+  stack.push({ id: dlgId, idx });
+  dlgId = to;
+  lines = DIALOGUES[to] ?? [];
+  idx = 0;
+  if (lines.length) showLine();
+  else next();
+}
+
+// ---------- voix ----------
+
+/** Joue la voix de la réplique en cours (normale ou lente). En オート, la suite attend la fin de la voix. */
+function speak(slow: boolean): void {
+  const id = lineId();
+  const on = Voice.play(id, slow, () => {
+    $('.vbtns').classList.remove('on');
+    if (dialogOpen() && lineId() === id && shown >= total) scheduleNext();
+  });
+  $('.vbtns').classList.toggle('on', on);
 }
 
 function closeDialog(): void {
   clearInterval(typeTimer);
   clearTimeout(waitTimer);
+  Voice.stop();
+  endAnswer();
+  stack = [];
   $('.dlg').hidden = true;
   $('.whisper').hidden = true;
   $('.menubtn').hidden = false;
@@ -269,8 +353,156 @@ function closeDialog(): void {
 export function advance(): void {
   if (!dialogOpen() || panelOpen()) return;
   if (!$('.word').hidden) return closeWord();
+  if (ans) {
+    // Une réponse se dit à voix haute. Espace ne passe que si le jeu le propose (micro absent, trois essais ratés).
+    if (!ans.done && !$('.pass').hidden) pass();
+    else if (!ans.done) nudge();
+    return;
+  }
   if (shown < total) return finishLine();
   next();
+}
+
+// ---------- répondre à voix haute ----------
+
+function showAnswer(l: Line): void {
+  const sp = SPEAKERS.player;
+  const box = $('.dlg');
+  box.classList.remove('wake', 'sign', 'ok');
+  box.classList.add('answer');
+  $('.face').hidden = !sp.face;
+  if (sp.face) $<HTMLImageElement>('.face img').src = WORLD[sp.face];
+  $('.name').innerHTML = rubyAll(sp.name) + '<small>声に出して</small>';
+  $('.wakebtn').hidden = false;
+  $('.vbtns').hidden = true;
+  $('.text').classList.remove('fr');
+  $('.next').classList.remove('on');
+  closeWord();
+  setSkip(false);
+  peek = false;
+  trOpen = P.settings.translate === 'always';
+  marks = [];
+
+  const texts = l.choices ? l.choices.map((c) => c.jp) : [l.jp ?? ''];
+  ans = { targets: texts.map((t) => target(t)), tries: 0, done: false, texts };
+  tokens = texts.flatMap((t) => tokensOf(t));
+  total = shown = charCount(tokens);
+  paint();
+  updateWhisper(true);
+
+  $('.ans').hidden = false;
+  $('.heard').textContent = '';
+  $('.verdict').textContent = '';
+  $('.pass').hidden = true;
+  const dbg = $<HTMLInputElement>('.dbg');
+  dbg.hidden = !DEBUG;
+  if (DEBUG) {
+    dbg.value = '';
+    setTimeout(() => dbg.focus(), 50);
+  }
+  micState();
+  Mic.arm(onHeard);
+}
+
+/** État du micro, sous la phrase : à l'écoute, refusé, ou absent (pas Chrome). Sans micro, on peut passer. */
+function micState(): void {
+  const m = $('.mic');
+  let label = '話してください · dis la phrase à voix haute';
+  let off = false;
+  if (DEBUG) label = 'mode test : tape la phrase';
+  else if (!SR) (label = 'Pas de reconnaissance vocale ici : ouvre le jeu dans Chrome.'), (off = true);
+  else {
+    Mic.start();
+    if (Mic.denied) (label = 'Micro refusé : autorise-le dans Chrome (icône à gauche de l’adresse), puis recharge.'), (off = true);
+  }
+  m.classList.toggle('off', off);
+  m.classList.toggle('live', !off && (DEBUG || Mic.live));
+  $('.mic span').textContent = label;
+  if (off && ans && !ans.done) $('.pass').hidden = false;
+}
+Mic.listen(() => {
+  if (ans && !ans.done) micState();
+});
+
+function onHeard(h: { fin: string; inter: string; cands: string[]; settled: boolean }): void {
+  if (!ans || ans.done) return;
+  $('.heard').textContent = h.fin + h.inter;
+  const v = judge(ans.targets, h.cands);
+  if (v?.ok) return success(v.choice);
+  if (!h.settled) return;
+  miss(v && !v.ok ? v.msg : 'Je n’ai pas reconnu la phrase. Redis-la en entier.');
+}
+
+function miss(msg: string): void {
+  if (!ans) return;
+  ans.tries++;
+  sfx('miss');
+  $('.verdict').textContent = msg;
+  const box = $('.dlg');
+  box.classList.remove('shake');
+  void box.offsetWidth;
+  box.classList.add('shake');
+  if (ans.tries >= 3) $('.pass').hidden = false;
+  Mic.arm(onHeard); // la prochaine tentative ne lit que ce qui sera dit après
+}
+
+function success(choice: number): void {
+  if (!ans) return;
+  ans.done = true;
+  Mic.disarm();
+  sfx('ok');
+  const l = cur();
+  $('.verdict').textContent = '';
+  $('.dlg').classList.add('ok');
+  $('.seal').hidden = false;
+  // La phrase dite rejoint la バックログ ; ses mots comptent pour l'acquisition.
+  const said = l.choices ? `${lineId()}/${choice}` : lineId();
+  const w = world();
+  w.log.push(said);
+  if (w.log.length > 120) w.log.splice(0, w.log.length - 120);
+  w.read[lineId()] = 1;
+  saveWorld();
+  const got = P.noteSaid(tokensOf(ans.texts[choice]));
+  if (got.length) toast(`覚えた <small>acquis : ${got.map((t) => esc(t.text)).join('、')}</small>`);
+  // Seule la phrase dite reste affichée.
+  if (l.choices) {
+    tokens = tokensOf(ans.texts[choice]);
+    $('.text').innerHTML = renderTokens(tokens, said);
+  }
+  const goto = l.choices?.[choice]?.goto;
+  waitTimer = window.setTimeout(() => {
+    if (!dialogOpen() || cur() !== l) return;
+    if (goto) {
+      w.read[lineId()] = 1;
+      jump(goto);
+    } else next();
+  }, 1100);
+}
+
+/** Passer une réponse (sans micro, ou après trois essais) : pas de mot compté, ワケ le dit. */
+function pass(): void {
+  if (!ans || ans.done) return;
+  success(0);
+  $('.dlg').classList.remove('ok');
+  $('.seal').hidden = true;
+  toast('飛ばした <small>passé : rien n’est compté</small>');
+}
+
+function nudge(): void {
+  const m = $('.mic');
+  m.classList.remove('nudge');
+  void m.offsetWidth;
+  m.classList.add('nudge');
+}
+
+function endAnswer(): void {
+  if (!ans) return;
+  ans = null;
+  Mic.disarm();
+  $<HTMLInputElement>('.dbg').blur();
+  $('.ans').hidden = true;
+  $('.seal').hidden = true;
+  $('.dlg').classList.remove('answer', 'ok', 'shake');
 }
 
 // ---------- ワケ souffle ----------
@@ -278,8 +510,9 @@ export function advance(): void {
 function updateWhisper(lineDone: boolean): void {
   const l = cur();
   const tr = $('.wtr'), mk = $('.wmk');
-  tr.hidden = !(l?.jp && trOpen);
-  tr.textContent = l?.jp ? l.fr : '';
+  const jp = l?.jp || l?.choices;
+  tr.hidden = !(jp && trOpen);
+  tr.textContent = l?.choices ? l.choices.map((c, k) => `${'一二三四'[k]}　${c.fr}`).join('\n') : l?.jp ? l.fr : '';
   mk.hidden = !(lineDone && marks.length);
   mk.innerHTML = marks.map((m) => `<span>${esc(MARKERS[m].wake)}</span>`).join('');
   const wh = $('.whisper');
@@ -290,14 +523,14 @@ function updateWhisper(lineDone: boolean): void {
 }
 
 export function toggleTranslation(): void {
-  if (!dialogOpen() || !cur()?.jp) return;
+  if (!dialogOpen() || !(cur()?.jp || cur()?.choices)) return;
   trOpen = !trOpen;
   updateWhisper(shown >= total);
   if (shown >= total) scheduleNext();
 }
 
 function togglePeek(): void {
-  if (!dialogOpen() || !cur()?.jp) return;
+  if (!dialogOpen() || !(cur()?.jp || cur()?.choices)) return;
   peek = !peek;
   paint();
 }
@@ -390,7 +623,7 @@ function closeWord(): void {
 
 /** Redessine ce qui porte du furigana après un changement (fiche d'un mot, réglages). */
 function refreshText(): void {
-  if (dialogOpen() && cur()?.jp) paint();
+  if (dialogOpen() && (cur()?.jp || cur()?.choices)) paint();
   if (!$('.p-log').hidden) renderLog(false);
 }
 
@@ -438,8 +671,9 @@ function renderLog(scroll = true): void {
     const sp = SPEAKERS[l.who] ?? { name: '' };
     const read = !!world().read[id] || id === lineId();
     const body = l.jp ? renderTokens(tokensOf(l.jp), id) : esc(l.fr);
-    html.push(`<div class="ent${l.jp ? '' : ' fr'}${l.who === 'wake' ? ' wake' : ''}${read ? '' : ' unread'}">
-      <div class="who">${sp.name ? rubyAll(sp.name) : '　'}</div>
+    const v = Voice.hasVoice(id) ? `<button class="lv" data-v="${esc(id)}" title="Réécouter">▶</button>` : '';
+    html.push(`<div class="ent${l.jp ? '' : ' fr'}${l.who === 'wake' ? ' wake' : ''}${l.who === 'player' ? ' me' : ''}${read ? '' : ' unread'}">
+      <div class="who">${sp.name ? rubyAll(sp.name) : '　'}${v}</div>
       <div class="lj">${body}</div>
       ${l.jp ? `<div class="tr"${logTr ? '' : ' hidden'}>${esc(l.fr)}</div>` : ''}
     </div>`);
@@ -548,7 +782,8 @@ function renderConfig(): void {
     row('ふりがな', 'auto : seulement ce que tu ne sais pas lire', 'furigana', [['auto', '自動'], ['all', '全部'], ['none', 'なし']], S.furigana),
     row('読める漢字', 'kanji réputés connus au départ', 'level', [['N3', 'N3まで'], ['N2', 'N2まで']], S.level),
     row('ワケの訳', 'la traduction de ワケ', 'translate', [['tap', 'タップで'], ['always', 'いつも']], S.translate),
-    `<div class="row"><label>音量<small>volume</small></label><input type="range" min="0" max="100" value="${Math.round(S.volume * 100)}" data-k="volume"></div>`,
+    `<div class="row"><label>音量<small>volume général</small></label><input type="range" min="0" max="100" value="${Math.round(S.volume * 100)}" data-k="volume"></div>`,
+    `<div class="row"><label>ボイス<small>volume des voix</small></label><input type="range" min="0" max="100" value="${Math.round(S.voice * 100)}" data-k="voice"></div>`,
     `<div class="row"><label>単語<small>mots dont tu as demandé la lecture : ${st.asked} · furigana masqué : ${st.hidden}</small></label><div class="seg"><button data-k="reset" data-v="1"${armedReset ? ' class="on"' : ''}>${armedReset ? '本当に？' : 'リセット'}</button></div></div>`,
   ].join('');
 }
@@ -587,9 +822,17 @@ export function toast(html: string): void {
 
 // ---------- actions, souris, clavier ----------
 
+function replay(slow: boolean): void {
+  if (!dialogOpen() || ans || !Voice.hasVoice(lineId())) return;
+  clearTimeout(waitTimer);
+  speak(slow);
+}
+
 function act(a: string): void {
   if (a === 'save' || a === 'load') openSlots(a);
   else if (a === 'auto') setAuto(!auto);
+  else if (a === 'replay' || a === 'slow') replay(a === 'slow');
+  else if (a === 'pass') pass();
   else if (a === 'skip') setSkip(!skip);
   else if (a === 'log') openLog();
   else if (a === 'config') {
@@ -606,6 +849,12 @@ function act(a: string): void {
 
 root.addEventListener('click', (e) => {
   const el = e.target as HTMLElement;
+  const lv = el.closest<HTMLElement>('[data-v]');
+  if (lv) {
+    e.stopPropagation();
+    return void Voice.play(lv.dataset.v!);
+  }
+  if (el.closest('.dbg')) return;
   const btn = el.closest<HTMLElement>('[data-a]');
   if (btn) {
     e.stopPropagation();
@@ -634,8 +883,8 @@ root.addEventListener('click', (e) => {
 
 root.addEventListener('input', (e) => {
   const el = e.target as HTMLInputElement;
-  if (el.dataset.k === 'volume') {
-    P.settings.volume = Number(el.value) / 100;
+  if (el.dataset.k === 'volume' || el.dataset.k === 'voice') {
+    P.settings[el.dataset.k] = Number(el.value) / 100;
     P.saveSettings();
     hooks.settings?.();
   }
@@ -646,7 +895,7 @@ $('.dlg').addEventListener('wheel', (e) => {
   if (e.deltaY < 0 && !panelOpen()) openLog();
 });
 
-const keyHelp = new Set(['Space', 'Enter', 'NumpadEnter', 'KeyE', 'KeyT', 'KeyA', 'KeyB', 'KeyF', 'Escape']);
+const keyHelp = new Set(['Space', 'Enter', 'NumpadEnter', 'KeyE', 'KeyT', 'KeyA', 'KeyB', 'KeyF', 'KeyR', 'KeyL', 'Escape']);
 
 // Le système de dialogue passe avant le jeu : écouté en phase de capture, il garde pour lui les touches qu'il utilise.
 window.addEventListener(
@@ -661,6 +910,15 @@ window.addEventListener(
       return;
     }
     if (dialogOpen()) {
+      // Mode test : le champ de réponse garde ses touches ; Entrée envoie la phrase au juge.
+      if (e.target instanceof HTMLInputElement && e.target.classList.contains('dbg')) {
+        e.stopImmediatePropagation();
+        if (e.key === 'Enter') {
+          Mic.inject(e.target.value);
+          e.target.value = '';
+        } else if (e.key === 'Escape') e.target.blur();
+        return;
+      }
       if (!keyHelp.has(e.code)) {
         if (e.key !== 'Control' && e.code !== 'KeyM') e.stopImmediatePropagation();
         return;
@@ -672,6 +930,8 @@ window.addEventListener(
       else if (e.code === 'KeyA') setAuto(!auto);
       else if (e.code === 'KeyB') openLog();
       else if (e.code === 'KeyF') togglePeek();
+      else if (e.code === 'KeyR') replay(false);
+      else if (e.code === 'KeyL') replay(true);
       else if (e.code === 'Escape') {
         if (!$('.word').hidden) closeWord();
         else openMenu();
@@ -693,7 +953,22 @@ window.addEventListener('blur', () => setCtrlSkip(false));
 
 // Accès de test : window.KDV.
 (window as unknown as { KDV: unknown }).KDV = {
-  state: () => ({ dialog: dialogOpen() ? lineId() : null, shown, total, auto, skip: skipping(), panel, tr: trOpen, marks, word: wordTok?.text ?? null }),
+  state: () => ({
+    dialog: dialogOpen() ? lineId() : null,
+    shown,
+    total,
+    auto,
+    skip: skipping(),
+    panel,
+    tr: trOpen,
+    marks,
+    word: wordTok?.text ?? null,
+    answer: ans ? { expect: ans.targets.map((t) => t.text), tries: ans.tries, done: ans.done, verdict: $('.verdict').textContent, heard: $('.heard').textContent } : null,
+    voice: Voice.playing(),
+  }),
+  say: (t: string) => Mic.inject(t),
+  answer: (k = 0) => ans && Mic.inject(ans.targets[k].text),
+  wrong: (k = 0) => ans && ans.targets[k].bad[0] && Mic.inject(plain(ans.targets[k].bad[0].markup)),
   text: () => $('.text').innerHTML,
   open: (id: string) => openDialog(id),
   settings: P.settings,
