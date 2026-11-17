@@ -1,6 +1,6 @@
 # 言霊 Kotodama : fichier de passation
 
-À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 4 (les voix). Le document de conception est `DESIGN.md`, à la racine du dépôt.
+À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 5 (le combat en pixel). Le document de conception est `DESIGN.md`, à la racine du dépôt.
 
 ## 0. Où est le jeu
 
@@ -22,6 +22,22 @@ Règles de conception qui en découlent :
 Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ## 2. État au 17 novembre
+
+### Session 5 : le combat en pixel
+
+Branche `session-5-combat-pixel`, PR #4 : https://github.com/arsenesistel-del/kotodama/pull/4. Construite sur la session 4 : fusionner #2, puis #3, puis #4.
+
+- **La chasse est de profil, façon vieux Final Fantasy** : la créature à gauche, le sabreur et ワケ à droite, trois fenêtres en bas. Le titre et le repaire restent à l'encre.
+- **Moteur inchangé** : `engine.js` et `game.js` n'ont pas bougé. 斬, 祓, 奥義, 崩, 怒, coups critiques, riposte, diagnostic des erreurs, rangs et 欠片 marchent comme en v4. Seul le rendu a changé : `src/combat/pixel.js` reprend l'interface de l'ancien rendu (`slash`, `stagger`, `enrage`, `monsterAttack`, `die`…).
+- **Rendu** : tout se dessine dans un petit tampon (environ 270 × 150 pixels du jeu) agrandi d'un facteur entier, donc aucun pixel coupé. Le sol se cale juste au-dessus des fenêtres du bas, quelle que soit la taille de l'écran.
+- **Sprites du pack** : le sabreur est `samuraiblue` (colonne de profil : attente, course, coup, blessé, victoire), ワケ est `spirit` teinté comme au village et flotte derrière lui. Le pack complet n'a pas pu être retéléchargé dans la session (itch.io refusé) : pas d'effets ni d'armes du pack, les coups de lame sont dessinés par le code.
+- **Créatures en pixel** : `tools/pixelize.py` tire une version pixel de chaque peinture de la v4 (62 à 86 pixels de haut), dans la rampe d'encre du pack (noir du contour, gris, os) avec un seul vermillon pour les yeux et les marques. Sortie dans `src/assets/combat/px/` (11 Ko pour les six). Relancer le script si une peinture change.
+- **Un décor par créature**, peint par le code dans la palette du pack, avec des objets du pack voilés de brume : moulin et rivière au crépuscule (欠けの影), gorge et pont suspendu (崩れ), col dans la brume avec 地蔵 et poteau (揺らぎ), relais de nuit aux lanternes (伝え火), torii sous les étoiles (訳の主), lune rouge et ruines (歪みの王). Brume tramée qui dérive, poussières.
+- **Ce qui se voit à chaque échange** : la créature s'assemble pixel par pixel à l'entrée. Elle flotte, ses bandes de pixels se décalent (la distorsion), plus souvent quand elle faiblit. Le sabreur court jusqu'à elle et frappe (traînée sur un critique ou un 奥義), elle clignote en blanc, les chiffres de dégâts rebondissent en police pixel. Avant de frapper, elle tremble, s'entoure de rouge et clignote ; elle se rue sur le sabreur, qui rougit et recule, ワケ sursaute. 崩 : contour doré et étoiles au-dessus de la tête. 怒 : contour et voile rouges, poussières rouges. Coup critique et 奥義 : image d'impact noir et blanc. Défaite : le sabreur tombe sur le côté. Apaisement : quatre traits de lame, puis la créature se défait pixel par pixel en flocons qui montent, et le sabreur prend la pose de victoire.
+- **Restent à l'encre**, en pleine résolution : les sceaux 会心, 崩, 怒, 奥義, 祓, le nom calligraphié à l'entrée, les lettres qui tournent autour de la créature (en DotGothic16).
+- **Fenêtres du bas** : à gauche la créature (nom, vie, jauge 崩), au centre la consigne (badge 斬, 祓 ou 奥義, phrase, barre de temps, ce que le micro entend), à droite 渡り (形, série 連, état du micro). Style des dialogues : encre, os, bord vermillon, DotGothic16. Le cadre central passe au rouge sur une phrase déformée ou une erreur, à l'or sur un 奥義 ou un critique.
+- `bg_temple.webp` et `p_slash.webp` ne servent plus (à retirer de `src/assets/combat/` pour alléger le chargement ; originaux dans `art/raw/`).
+- Vérifié dans Chrome sans écran (mode test, 1600 × 900 et 1280 × 720) : les six créatures et leurs décors, une chasse complète de 欠けの影 (critique, erreur et riposte, 祓, 崩 puis 奥義, 怒, apaisement, rang A), une défaite contre 歪みの王. Aucune erreur JavaScript. `npm test` et `npm run build` passent. Pas vérifié à la voix réelle ni sur un vrai écran.
 
 ### Session 4 : les voix
 
@@ -149,14 +165,14 @@ Détourage : `tools/process.py` (alpha tiré de la luminosité + silhouette remp
 - `src/world/` : le monde. `vn.ts` et `vn.css` (dialogues façon VN, menus, バックログ, sauvegardes, réglages), `text.ts` (découpage des répliques en mots), `lexicon.ts` (sens en français, 役割語), `prefs.ts` (réglages, mémoire des mots), `kanji.ts` (kanji N5 à N2), `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (invites, titres, fiche d'un lieu), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
 - `src/assets/world/` : tuiles, personnages, sons du pack Ninja Adventure.
 - `src/combat/engine.js` : générateur de phrases, vérification (`matches`), diagnostic (`diagnose`), statuts, les six distorsions (`STAGES`).
-- `src/combat/scene.js` : rendu canvas (décor, créature, sabreur, effets) et sons synthétisés.
+- `src/combat/scene.js` : fond à l'encre du titre et du repaire, état partagé, sons synthétisés. `src/combat/pixel.js` : la chasse en pixel (décors, créature, sabreur, ワケ, effets, sceaux).
 - `src/mic.js` : le micro (Web Speech API), partagé par le combat et les dialogues. `src/world/answer.ts` : vérification des réponses dites. `src/world/voice.ts`, `voicefile.ts` : lecture des voix. `src/assets/voice/` : les voix et `index.json`.
 - `src/combat/game.js` : déroulé d'une chasse, sauvegarde, repaire, résultat.
 - `src/combat/shell.html`, `src/combat/style.css` : interface du combat. `src/combat/assets.ts` : URLs des images. `src/combat/mount.ts` : montage dans la page.
-- `src/assets/combat/` : images du combat (WebP). `art/raw/` : originaux.
+- `src/assets/combat/` : peintures du titre et du repaire (WebP), `px/` : les créatures en pixel. `art/raw/` : originaux.
 - `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes ; `scripts/check-dialogue.mjs` : vérification des répliques. Les trois tournent avec `npm test`.
 - `scripts/voice-lines.mjs` : répliques à doubler et texte pour le moteur de voix. `tools/voicevox.mjs` : voix des figurants avec VOICEVOX, sur le PC d'Arsène.
-- `tools/process.py` : détourage. `tools/test_micro.html` : page de test du micro.
+- `tools/process.py` : détourage. `tools/pixelize.py` : version pixel des créatures. `tools/test_micro.html` : page de test du micro.
 - `.github/workflows/deploy.yml` : tests, construction et mise en ligne.
 - `DESIGN.md`, `PASSATION.md`, `CREDITS.md`.
 
@@ -184,7 +200,7 @@ Plan validé par Arsène, dans cet ordre :
 7. Fait en session 1 : hébergement GitHub Pages, qui garde la permission micro d'une fois sur l'autre.
 8. Lien avec le reste : Anki comme centre, mémo des points faibles pour Riho, import des leçons.
 
-Piste pour mieux animer : générer d'autres poses du sabreur (garde, blessé, à genoux) et une pose d'attaque par créature, 190 crédits l'image.
+Piste pour le combat en pixel : retélécharger le pack Ninja Adventure (depuis le PC d'Arsène si la session ne peut pas) pour prendre ses effets (Fx : coupures, fumée, éléments) et le katana, et dessiner deux ou trois images d'attaque par créature.
 
 ## 7. Comment lui répondre
 
