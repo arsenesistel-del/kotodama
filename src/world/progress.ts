@@ -203,7 +203,7 @@ export function label(id: string): string {
   return id.slice(2);
 }
 
-const FRAME_OF: Record<string, string> = { と思う: 'omou', かもしれない: 'kamo', そうだ: 'souda', んです: 'ndesu' };
+const FRAME_OF: Record<string, string> = { と思う: 'omou', かもしれない: 'kamo', そうだ: 'souda', んです: 'ndesu', んだ: 'ndesu' };
 const SKIP_BACK = new Set(['particule', 'particule finale', 'copule', 'copule polie', 'copule négative', 'suffixe']);
 const TYPE_OF: Record<string, string> = { 'adjectif い': 'ia', 'adjectif な': 'na', verbe: 've' };
 
