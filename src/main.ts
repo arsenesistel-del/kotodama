@@ -1,6 +1,8 @@
 import * as Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { CombatScene } from './scenes/CombatScene';
+import { VillageScene } from './scenes/VillageScene';
+import { WorldMapScene } from './scenes/WorldMapScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -8,7 +10,8 @@ const game = new Phaser.Game({
   backgroundColor: '#050505',
   pixelArt: true,
   scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
-  scene: [BootScene, CombatScene],
+  roundPixels: true,
+  scene: [BootScene, VillageScene, WorldMapScene, CombatScene],
 });
 
 // Accès en console pour le débogage.

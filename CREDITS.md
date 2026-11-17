@@ -5,6 +5,12 @@ Chaque ressource du jeu, avec sa source et sa licence.
 | Ressource | Où | Source | Licence |
 | --- | --- | --- | --- |
 | Peintures des créatures, du sabreur et des décors | `src/assets/combat/`, `art/raw/` | Générées pour Kotodama (ElevenLabs, modèle gpt-image) | Images du projet |
+| Tuiles, décors, personnages, portraits du monde en pixel | `src/assets/world/tiles/`, `src/assets/world/actors/` | [Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack), pixel-boy | CC0 1.0 |
+| Musiques du village (« Lost Village ») et de la carte (« Road ») | `src/assets/world/audio/` | Ninja Adventure | CC0 1.0 |
+| Bruitages (rivière, menus) | `src/assets/world/audio/` | Ninja Adventure, convertis en OGG | CC0 1.0 |
+| Carte du monde à l'encre | `src/world/inkmap.ts` | Peinte par le code du projet | Code du projet |
+| DotGothic16 (dialogues) | Google Fonts | Fontworks | SIL Open Font License 1.1 |
+| Yuji Syuku (noms de lieux, carte) | Google Fonts | Kinuta Font Factory, d'après Yuji Kataoka | SIL Open Font License 1.1 |
 | Shippori Mincho (titres, noms) | Google Fonts | FONTDASU | SIL Open Font License 1.1 |
 | Zen Kaku Gothic New (texte) | Google Fonts | Yoshimichi Ohira | SIL Open Font License 1.1 |
 | Sons et ambiance du combat | `src/combat/scene.js` | Synthétisés dans le navigateur (WebAudio) | Code du projet |

@@ -1,6 +1,6 @@
 # 言霊 Kotodama : fichier de passation
 
-À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 1 (fondations). Le document de conception est `DESIGN.md`, à la racine du dépôt.
+À donner tel quel à un nouveau chat. Dernière mise à jour : 17 novembre 2026, session 2 (le monde en pixel). Le document de conception est `DESIGN.md`, à la racine du dépôt.
 
 ## 0. Où est le jeu
 
@@ -22,6 +22,25 @@ Règles de conception qui en découlent :
 Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ## 2. État au 17 novembre
+
+### Session 2 : le monde en pixel
+
+Livrée dans la PR #1 (branche `session-2-village`) : https://github.com/arsenesistel-del/kotodama/pull/1. En ligne dès qu'elle est fusionnée dans `main`.
+
+- Pack [Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) complet récupéré sur itch.io (CC0, 89 Mo). Seul ce qui sert est dans le dépôt, sous `src/assets/world/` (tuiles, 7 personnages et leurs portraits, roue du moulin, 2 musiques, 4 bruitages ; 2,5 Mo). Le pack entier n'est pas versionné : le retélécharger s'il faut d'autres pièces.
+- Premier village, 霧野村, 48 × 40 tuiles de 16 px, décrit dans `src/world/maps/kirino.ts` : col au nord (地蔵, poteau), salon de thé d'おみつ, maison de 萬作, place et puits, moulin à l'arrêt au bord de la rivière, pont de bois, pont suspendu, rizières en terrasse, colline du cimetière (torii, tombes, grand cerisier, tombe d'お露), grand-route au sud. Forêt de montagne tout autour.
+- Le terrain s'écrit en lettres (herbe, chemin, eau, forêt) ; les bords des chemins et de l'eau sont posés automatiquement (`autotile` dans `src/world/tileset.ts`). Les objets ont un masque de collision et un nombre de lignes dessinées devant les personnages (cimes, toits).
+- Déplacement au clavier (ZQSD, WASD ou flèches, Maj pour courir), collisions sur la grille avec glissement le long des murs, caméra qui suit avec un zoom entier calculé sur la taille de l'écran.
+- ワケ suit le sabreur en flottant (sprite « Spirit » du pack, teinté gris).
+- Cinq PNJ en place, qui disent leur réplique « avant » du DESIGN : 萬作, おみつ, 太一, et deux figurants, おたね et 権兵衛. Boîte de dialogue façon VN en HTML (portrait du pack, DotGothic16, furigana, texte qui défile). T ou le bouton 訳 : ワケ traduit (palier 1). Panneaux et tombe lisibles.
+- Brume : deux nappes qui dérivent, plus épaisses sur la colline ; vignette et couleurs désaturées dans le village. Titre du lieu calligraphié à l'arrivée. Musique « Lost Village », rivière dont le son monte quand on s'en approche.
+- Carte du monde à l'encre (`src/world/inkmap.ts`, peinte par le code) : montagnes au lavis, mer, rivière, brume, grand-route vers les huit lieux, en pointillés tant qu'ils sont fermés. Lieux dans `src/world/places.ts`. Ouverts : 霧野村 et 霧野峠. Clic ou flèches puis Entrée.
+- Sortir du village par le nord ou le sud mène à la carte. 霧野峠 ouvre le combat v4 ; le bouton 地図へ du repaire ramène à la carte. Revenir du col fait entrer au village par le nord.
+- Sauvegarde du monde séparée : `localStorage`, clé `kotodama.world.v1` (scène, lieu, entrée, position, dialogues vus). Au rechargement, on reprend dans le village ou sur la carte.
+- `npm test` vérifie aussi les cartes (`scripts/check-maps.mjs`) : arrivées libres, sorties, PNJ et panneaux atteignables à pied, répliques présentes.
+- Vérifié dans Chrome sans écran : arrivée et dialogue de ワケ, marche, collisions (salon de thé, rivière), traversée du pont, dialogue avec traduction, sortie sud, carte, combat, retour à la carte, retour au village par le nord. Aucune erreur JavaScript.
+
+Pas encore fait dans le village : répondre à voix haute (les PNJ parlent, le joueur écoute seulement), voix des PNJ, contrats donnés par les PNJ, prologue au col, intérieurs des maisons.
 
 ### Session 1 : les fondations
 
@@ -83,13 +102,15 @@ Détourage : `tools/process.py` (alpha tiré de la luminosité + silhouette remp
 ## 5. Contenu du dépôt
 
 - `index.html`, `src/main.ts` : point d'entrée, création du jeu Phaser.
-- `src/scenes/BootScene.ts` : chargement des images. `src/scenes/CombatScene.ts` : pose le combat v4.
+- `src/scenes/BootScene.ts` : chargement des images, des sons et des polices, puis village ou carte selon la sauvegarde. `src/scenes/CombatScene.ts` : pose le combat v4. `src/scenes/VillageScene.ts` : le village en pixel. `src/scenes/WorldMapScene.ts` : la carte du monde.
+- `src/world/` : le monde. `assets.ts` (URLs des ressources), `tileset.ts` (feuilles et transitions automatiques), `objects.ts` (catalogue des objets du décor), `build.ts` (calcul des tuiles et des collisions, sans Phaser), `draw.ts` (pose dans Phaser), `maps/` (une carte par lieu), `dialogue.ts` (répliques et traductions), `ui.ts` et `ui.css` (dialogue, invites, titres), `places.ts` et `inkmap.ts` (carte du monde), `state.ts` (sauvegarde du monde), `actor.ts` (animations).
+- `src/assets/world/` : tuiles, personnages, sons du pack Ninja Adventure.
 - `src/combat/engine.js` : générateur de phrases, vérification (`matches`), diagnostic (`diagnose`), statuts, les six distorsions (`STAGES`).
 - `src/combat/scene.js` : rendu canvas (décor, créature, sabreur, effets) et sons synthétisés.
 - `src/combat/game.js` : micro (`Mic`), déroulé d'une chasse, sauvegarde, repaire, résultat.
 - `src/combat/shell.html`, `src/combat/style.css` : interface du combat. `src/combat/assets.ts` : URLs des images. `src/combat/mount.ts` : montage dans la page.
 - `src/assets/combat/` : images du combat (WebP). `art/raw/` : originaux.
-- `scripts/check-engine.mjs` : vérification du moteur (`npm test`).
+- `scripts/check-engine.mjs` : vérification du moteur ; `scripts/check-maps.mjs` : vérification des cartes. Les deux tournent avec `npm test`.
 - `tools/process.py` : détourage. `tools/test_micro.html` : page de test du micro.
 - `.github/workflows/deploy.yml` : tests, construction et mise en ligne.
 - `DESIGN.md`, `PASSATION.md`, `CREDITS.md`.
@@ -98,13 +119,17 @@ Travailler en local : `npm install`, puis `npm run dev` (jeu sur http://localhos
 
 Mode test : ajouter `#debug` à l'adresse. Un champ texte remplace le micro et `window.KD` expose l'état (`KD.answer()` dit la bonne phrase, `KD.say(texte)` injecte une phrase, `KD.wrong()` dit la phrase déformée).
 
+Dans le village, `window.KDW` : `KDW.go(x, y)` téléporte (en tuiles), `KDW.state()` donne position, direction, cible et dialogue, `KDW.talk()` parle. Sur la carte, `window.KDM.go('kirino')` voyage, `KDM.sel()` donne le lieu choisi. Pour repartir de zéro dans le monde : `localStorage.removeItem('kotodama.world.v1')`.
+
+Ajouter un lieu en pixel : une carte dans `src/world/maps/` (terrain en lettres, objets du catalogue, PNJ, arrivées, sorties), l'inscrire dans `maps/index.ts`, ouvrir le lieu dans `places.ts`, écrire ses répliques dans `dialogue.ts`. `npm test` dit si quelque chose est inaccessible.
+
 ## 6. Suite prévue
 
 Lore retenu : voir `DESIGN.md`. Le monde tenait par la parole, les phrases laissées inachevées sont devenues des distorsions, chaque village a perdu une façon de parler.
 
 Plan validé par Arsène, dans cet ordre :
 1. Fait en v4 : animations du combat, interface, variété.
-2. Premier village avec trois PNJ qui parlent (voix japonaise ElevenLabs), contrats donnés par les PNJ, carte du monde à l'encre avec des lieux reliés. Détail du chapitre 1 dans `DESIGN.md`.
+2. Premier village : fait en session 2 pour la carte, le déplacement, les PNJ et la carte du monde. Reste, dans l'ordre : répondre aux PNJ à voix haute (échelle « Lire » du DESIGN, avec le micro déjà en place), voix japonaises ElevenLabs des trois PNJ, contrats donnés par les PNJ avec enquête et retour, prologue au col qui libère ワケ, portraits illustrés. Détail du chapitre 1 dans `DESIGN.md`.
 3. Forge : les fragments servent à forger des lames (une lame = une famille de structures : avis, cause, condition...) et des sceaux à équiper qui changent les règles (moins de temps pour plus de dégâts, sans furigana pour un bonus).
 4. Traques : une faute répétée fait naître sa propre créature, à rechasser.
 5. Nombres et compteurs avec le modèle kana en local.
