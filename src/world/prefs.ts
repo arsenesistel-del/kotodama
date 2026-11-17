@@ -13,12 +13,13 @@ export interface Settings {
   level: 'N3' | 'N2'; // kanji réputés connus
   translate: 'tap' | 'always'; // ワケ traduit à la demande ou toujours
   volume: number; // 0 à 1
+  voice: number; // volume des voix, 0 à 1 (multiplié par le volume général)
 }
 
 const SKEY = 'kotodama.settings.v1';
 const WKEY = 'kotodama.words.v1';
 
-const defaults = (): Settings => ({ textSpeed: 1, autoSpeed: 1, furigana: 'auto', level: 'N3', translate: 'tap', volume: 0.8 });
+const defaults = (): Settings => ({ textSpeed: 1, autoSpeed: 1, furigana: 'auto', level: 'N3', translate: 'tap', volume: 0.8, voice: 1 });
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -53,7 +54,11 @@ interface WordState {
   asked: number;
   furi?: boolean;
   seen: number;
+  said?: number; // fois où le joueur l'a prononcé juste, dans une réponse validée par le micro
 }
+
+/** Prononcé juste autant de fois, un mot dont il avait demandé la lecture est réputé acquis : son furigana s'efface. */
+export const ACQUIRED = 3;
 const words: Record<string, WordState> = load(WKEY, {} as Record<string, WordState>);
 export const saveWords = () => store(WKEY, words);
 
@@ -96,6 +101,22 @@ export function setFuri(t: Token, on: boolean): void {
 export function noteSeen(tokens: Token[]): void {
   for (const t of tokens) if (!t.punct) wordState(t).seen++;
   saveWords();
+}
+
+/** Le joueur vient de dire juste une phrase : chaque mot compte. Rend les mots qui viennent d'être acquis. */
+export function noteSaid(tokens: Token[]): Token[] {
+  const got: Token[] = [];
+  for (const t of tokens) {
+    if (t.punct) continue;
+    const w = wordState(t);
+    w.said = (w.said ?? 0) + 1;
+    if (w.said >= ACQUIRED && w.furi === true && w.asked > 0) {
+      w.furi = false;
+      got.push(t);
+    }
+  }
+  saveWords();
+  return got;
 }
 
 export function wordsStats(): { asked: number; hidden: number } {

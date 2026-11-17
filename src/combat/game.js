@@ -2,6 +2,7 @@
 import { ASSETS } from './assets';
 import { STAGES, nextItem, matches, diagnose, norm, med, statusOf, FRAMES, TYPES, ALLKEYS, keyLabel } from './engine.js';
 import { S, Scene, Snd, resize } from './scene.js';
+import { Mic, SR } from '../mic.js';
 const $ = s => document.querySelector(s);
 const DEBUG = /debug/.test(location.hash + location.search);
 const SAVE_KEY = 'kotodama.v1', FAST = 3500, MAXHP = 5;
@@ -10,38 +11,6 @@ function load() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || '
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { } }
 const today = () => new Date().toLocaleDateString('sv-SE');
 
-/* ---------- micro : une seule écoute continue, mais chaque phrase ne lit que ce qui est dit après son départ ---------- */
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-const Mic = {
-  rec: null, want: false, live: false, base: 0, len: 0, pending: false, pIdx: -1, pLen: 0, carryIdx: -1, carryLen: 0, handler: null, denied: false, restarts: 0,
-  start() {
-    if (!SR) return false; if (this.rec) return true;
-    const r = this.rec = new SR(); r.lang = 'ja-JP'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 5;
-    r.onstart = () => { this.live = true; this.base = 0; this.len = 0; this.pending = false; this.pIdx = -1; this.carryIdx = -1; micUi(); };
-    r.onend = () => { this.live = false; this.pending = false; micUi(); if (this.want && !this.denied) { this.restarts++; setTimeout(() => { try { r.start(); } catch (e) { } }, 120); } };
-    r.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { this.denied = true; this.want = false; micUi(); } };
-    r.onresult = e => {
-      this.len = e.results.length; let inter = '', pIdx = -1, pLen = 0; const fins = [];
-      for (let j = 0; j < e.results.length; j++) {
-        const x = e.results[j]; if (!x.isFinal && pIdx < 0) { pIdx = j; pLen = x[0].transcript.length; }
-        if (j < this.base) continue;
-        // la phrase précédente peut encore être en cours de finalisation : on ne garde que ce qui a été dit après
-        const cut = t => (j === this.carryIdx ? (t.length > this.carryLen ? t.slice(this.carryLen) : '') : t);
-        if (x.isFinal) { const alts = Array.from(x).map(a => cut(a.transcript)); if (j === this.carryIdx && norm(alts[0]).length <= 2) continue; fins.push(alts); }
-        else inter += cut(x[0].transcript);
-      }
-      this.pending = pIdx >= 0; this.pIdx = pIdx; this.pLen = pLen; if (!this.handler) return;
-      const fin = fins.map(a => a[0]).join(''), cands = [fin + inter];
-      fins.forEach((alts, i) => alts.slice(1).forEach(a => cands.push(fins.map((b, k) => k === i ? a : b[0]).join('') + inter)));
-      this.handler({ fin, inter, cands, settled: !!fin && !inter });
-    };
-    this.want = true; try { r.start(); } catch (e) { } return true;
-  },
-  arm(h) { if (this.pending && this.pIdx >= 0) { this.base = this.pIdx; this.carryIdx = this.pIdx; this.carryLen = this.pLen; } else { this.base = this.len; this.carryIdx = -1; } this.handler = h; },
-  disarm() { this.handler = null; },
-  flush() { if (this.rec && this.live) { try { this.rec.abort(); } catch (e) { } } },
-  inject(text) { if (this.handler) this.handler({ fin: text, inter: '', cands: [text], settled: true }); }
-};
 function micUi() { const el = $('#mic'); if (!el) return; el.textContent = Mic.denied ? 'micro refusé' : Mic.live ? 'micro ouvert' : DEBUG ? 'mode texte' : 'micro coupé'; el.className = Mic.live ? 'on' : 'off'; if (!$('#hub').hidden) hub(); }
 
 /* ---------- chasse ---------- */
@@ -228,6 +197,6 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) hidde
 if (DEBUG) { const d = $('#dbg'); d.hidden = false; d.addEventListener('keydown', e => { if (e.key === 'Enter') { Mic.inject(d.value); d.value = ''; } e.stopPropagation(); }); }
 window.KD = { H, Mic, S, save: () => save, say: t => Mic.inject(t), answer: () => Mic.inject(H.item.canon), wrong: () => Mic.inject(H.item.broken.text) };
 
-load(); if (!save.frags) save.frags = {}; resize(); micUi();
+load(); if (!save.frags) save.frags = {}; resize(); Mic.listen(micUi); micUi();
 let lastT = performance.now();
 (function loop(now) { const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; Scene.frame(dt); tick(); requestAnimationFrame(loop); })(performance.now());
