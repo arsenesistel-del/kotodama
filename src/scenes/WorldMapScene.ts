@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import { ensureAnims } from '../world/actor';
 import { MAP_H, MAP_W, paintInkMap } from '../world/inkmap';
-import { PLACES, ROUTE, placeById, type Place } from '../world/places';
+import { PLACES, ROUTE, isOpen, placeById, type Place } from '../world/places';
 import { saveWorld, world } from '../world/state';
 import * as UI from '../world/ui';
 import { maybeWeekly } from '../world/vn';
@@ -33,7 +33,7 @@ export class WorldMapScene extends Phaser.Scene {
     UI.setPrompt(null);
     this.cameras.main.setBackgroundColor('#0d0c0b');
 
-    const open = new Set(PLACES.filter((p) => p.open).map((p) => p.id));
+    const open = new Set(PLACES.filter((p) => isOpen(p, save.flags)).map((p) => p.id));
     if (this.textures.exists('inkmap')) this.textures.remove('inkmap');
     this.textures.addCanvas('inkmap', paintInkMap(open));
     this.board = this.add.container(0, 0);
@@ -96,6 +96,7 @@ export class WorldMapScene extends Phaser.Scene {
 
   private addPlace(p: Place): void {
     const g = this.add.graphics();
+    p = { ...p, open: isOpen(p, world().flags) };
     const big = p.kind !== 'site';
     if (p.open) {
       if (big) {
@@ -147,11 +148,13 @@ export class WorldMapScene extends Phaser.Scene {
 
   private select(i: number): void {
     this.sel = i;
-    const p = placeById(ORDER[i])!;
+    const p0 = placeById(ORDER[i])!;
+    const p = { ...p0, open: isOpen(p0, world().flags) };
     this.ring.setPosition(p.x, p.y);
     const here = world().place === p.id;
     let action: string;
     if (!p.open) action = 'La route ne s’ouvre qu’une fois le lieu précédent apaisé.';
+    else if (p.soon) action = 'La route est ouverte. 第二章 : à venir.';
     else if (p.kind === 'site') action = '<kbd>Entrée</kbd> chasser les distorsions (combat)';
     else action = `<kbd>Entrée</kbd> ${here ? 'retourner au village' : 'y aller'}`;
     UI.placeInfo(p, action + '<br><kbd>←</kbd><kbd>→</kbd> changer de lieu');
@@ -163,7 +166,7 @@ export class WorldMapScene extends Phaser.Scene {
 
   private travel(p: Place): void {
     if (this.going) return;
-    if (!p.open) {
+    if (!isOpen(p, world().flags) || p.soon) {
       this.blip('audio/cancel');
       this.tweens.add({ targets: this.ring, x: this.ring.x + 4, duration: 50, yoyo: true, repeat: 2 });
       return;

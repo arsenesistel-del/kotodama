@@ -49,7 +49,10 @@ export interface MapDef {
   ambience?: { key: string; rows: [number, number] };
   fog: number;
   spawns: Record<string, Spawn>;
-  exits: { side: 'north' | 'south' | 'west' | 'east'; from: number; to: number; gate: string }[];
+  // `place` : la sortie mène directement à un autre lieu en pixel (le col descend au village), sans la carte du monde.
+  exits: { side: 'north' | 'south' | 'west' | 'east'; from: number; to: number; gate: string; place?: string }[];
+  // Cases bloquées tant que le fil de l'histoire n'a pas posé `flag` (la brume du col, avant que ワケ soit libéré).
+  barriers?: { cells: [number, number][]; flag: string; say: string }[];
   npcs: NpcDef[];
   readables: Record<string, string>; // id d'objet → id de dialogue
 }

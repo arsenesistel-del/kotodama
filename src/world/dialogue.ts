@@ -10,6 +10,7 @@
 // son dialogue `goto`, puis on reprend la suite.
 
 import { QUEST_DIALOGUES, QUEST_SPEAKERS } from './quest-lines';
+import { STORY_DIALOGUES, STORY_SPEAKERS } from './story-lines';
 
 export interface Choice {
   jp: string;
@@ -35,15 +36,10 @@ export const SPEAKERS: Record<string, { name: string; face?: string }> = {
   player: { name: 'あなた', face: 'actors/samuraiblue_face' },
   sign: { name: '' },
   ...QUEST_SPEAKERS,
+  ...STORY_SPEAKERS,
 };
 
 export const DIALOGUES: Record<string, Line[]> = {
-  arrival: [
-    { who: 'wake', fr: 'Nous y voilà. Kirino, le village de la brume.' },
-    { who: 'wake', fr: 'Écoute-les bien. Ils parlent, mais j’ai l’impression qu’il leur manque quelque chose.' },
-    { who: 'wake', fr: 'Approche-toi de quelqu’un et appuie sur Espace. Touche un mot pour son sens. Et si tu sèches, je te souffle la traduction : touche T ou 訳.' },
-    { who: 'wake', fr: 'Ici, on te répond. Quand ta phrase s’affiche, dis-la à voix haute. Ta lame ne coupe que les phrases justes, ta langue c’est pareil.' },
-  ],
   mansaku: [
     { who: 'mansaku', jp: '{旅|たび}の{者|もの}か。……{霧|きり}じゃ。{今日|きょう}も、{霧|きり}じゃ。', fr: 'Un voyageur ? Du brouillard. Encore du brouillard aujourd’hui.' },
     { who: 'player', jp: 'はい、{旅|たび}の{者|もの}です。よろしくお{願|ねが}いします。', fr: 'Oui, je suis un voyageur. Enchanté.' },
@@ -119,4 +115,5 @@ export const DIALOGUES: Record<string, Line[]> = {
     { who: 'wake', fr: 'Quelqu’un vient la nettoyer souvent. Les fleurs sont fraîches.' },
   ],
   ...QUEST_DIALOGUES,
+  ...STORY_DIALOGUES,
 };

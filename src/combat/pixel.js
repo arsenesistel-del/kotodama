@@ -83,7 +83,11 @@ const SETS = {
   yuragi: { sky: ['#584b46', '#8d977f', '#b6beb0'], far: '#8d977f', near: '#5f7160', ground: ['#5f7160', '#3e4b42', '#141b1b'], fog: '#d2c9c9', fogA: 0.32, trees: 'pine', mark: 'jizo' },
   tsutae: { sky: ['#141b1b', '#242118', '#3b3643'], far: '#2e3939', near: '#1c2222', ground: ['#3b3643', '#242118', '#0b0e0e'], fog: '#695953', fogA: 0.14, trees: 'round', mark: 'lanterns', stars: true },
   wake: { sky: ['#141b1b', '#2e3939', '#3b3643'], far: '#2b2a33', near: '#1c2222', ground: ['#4e484a', '#2b2a33', '#0b0e0e'], fog: '#9ba7aa', fogA: 0.14, trees: 'pine', mark: 'torii', stars: true },
-  ou: { sky: ['#090b0c', '#141b1b', '#242118'], far: '#1c1414', near: '#0e0c0c', ground: ['#242118', '#141b1b', '#050606'], fog: '#681f14', fogA: 0.16, trees: null, mark: 'moon' }
+  ou: { sky: ['#090b0c', '#141b1b', '#242118'], far: '#1c1414', near: '#0e0c0c', ground: ['#242118', '#141b1b', '#050606'], fog: '#681f14', fogA: 0.16, trees: null, mark: 'moon' },
+  // Session 8 : la place du village à la nuit tombée (le puits), les rizières au crépuscule, la colline du cimetière.
+  tsubu: { sky: ['#1c2222', '#3b3643', '#584b46'], far: '#2e3939', near: '#242118', ground: ['#584b46', '#2e3939', '#141b1b'], fog: '#8e7c73', fogA: 0.2, trees: 'round', mark: 'well' },
+  mayoi: { sky: ['#3b3643', '#8e7c73', '#bfa49e'], far: '#695953', near: '#56634d', ground: ['#5f7160', '#3e4b42', '#141b1b'], fog: '#d2c9c9', fogA: 0.22, trees: null, mark: 'paddy' },
+  kiri: { sky: ['#2b2a33', '#748e90', '#d2c9c9'], far: '#8e8a8c', near: '#4e484a', ground: ['#4e484a', '#2b2a33', '#141b1b'], fog: '#f2eaf1', fogA: 0.42, trees: null, mark: 'hill' }
 };
 // un dégradé en bandes tramées, comme sur les vieilles consoles
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
@@ -99,7 +103,7 @@ function ridge(ctx, seed, base, amp, col, rough) {
     const top = Math.round(base - Math.abs(v) * amp); ctx.fillRect(x, top, 1, GY - top + 1); }
 }
 const tile = (sheet, sx, sy, w, h) => [IMG[sheet], sx * 16, sy * 16, w * 16, h * 16];
-const PROP = { pine: tile('nature', 2, 0, 2, 2), round: tile('nature', 0, 0, 2, 2), mill: tile('house', 12, 0, 4, 3), houseDark: tile('house', 19, 0, 4, 3), torii: tile('house', 0, 5, 3, 2), jizo: tile('element', 0, 5, 1, 2), sign: tile('element', 6, 3, 1, 2), rock: tile('nature', 8, 12, 1, 1) };
+const PROP = { well: tile('element', 6, 1, 1, 1), houseA: tile('house', 0, 0, 4, 3), tea: tile('house', 16, 0, 3, 3), scarecrow: tile('element', 15, 0, 1, 1), grave: tile('element', 5, 2, 1, 1), tomb: tile('element', 4, 2, 1, 1), sakura: tile('nature', 0, 18, 3, 3), pine: tile('nature', 2, 0, 2, 2), round: tile('nature', 0, 0, 2, 2), mill: tile('house', 12, 0, 4, 3), houseDark: tile('house', 19, 0, 4, 3), torii: tile('house', 0, 5, 3, 2), jizo: tile('element', 0, 5, 1, 2), sign: tile('element', 6, 3, 1, 2), rock: tile('nature', 8, 12, 1, 1) };
 // un objet du pack, voilé par la brume selon sa profondeur
 function prop(ctx, p, x, y, fog, a) { const [im, sx, sy, sw, sh] = p; if (!im.ok) return; const [c, cx] = canvas(sw, sh); cx.drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh); cx.globalCompositeOperation = 'source-atop'; cx.globalAlpha = a; cx.fillStyle = fog; cx.fillRect(0, 0, sw, sh); ctx.drawImage(c, Math.round(x), Math.round(y - sh)); }
 
@@ -129,6 +133,14 @@ function backdrop(id) {
     if (s.mark === 'mill') { prop(x, PROP.mill, BW * 0.04, GY + 2, s.fog, 0.55); const w = IMG.watermill; if (w.ok) { const [cc, cx] = canvas(34, 36); cx.drawImage(w, 0, 0, 34, 36, 0, 0, 34, 36); cx.globalCompositeOperation = 'source-atop'; cx.globalAlpha = 0.55; cx.fillStyle = s.fog; cx.fillRect(0, 0, 34, 36); x.drawImage(cc, Math.round(BW * 0.04 + 62), GY + 4 - 36); } }
     if (s.mark === 'jizo') { prop(x, PROP.jizo, BW * 0.52, GY + 3, s.fog, 0.4); prop(x, PROP.sign, BW * 0.58, GY + 3, s.fog, 0.4); prop(x, PROP.rock, BW * 0.47, GY + 4, s.fog, 0.45); }
     if (s.mark === 'torii') prop(x, PROP.torii, BW * 0.5 - 24, GY + 1, s.fog, 0.55);
+    if (s.mark === 'well') { prop(x, PROP.houseA, BW * 0.02, GY + 2, s.fog, 0.6); prop(x, PROP.tea, BW * 0.7, GY + 2, s.fog, 0.55); prop(x, PROP.well, BW * 0.5, GY + 4, s.fog, 0.35);
+      const lx = Math.round(BW * 0.7 + 40), ly = GY - 30; for (let y = -8; y <= 8; y++) for (let xx = -8; xx <= 8; xx++) { const d = Math.hypot(xx, y) / 8; if (d < 1 && bay(xx + 4, y + 4) < (1 - d) * 0.5) { x.fillStyle = C.verm2; x.fillRect(lx + xx, ly + y, 1, 1); } } x.fillStyle = C.verm; x.fillRect(lx - 2, ly - 3, 4, 6); }
+    if (s.mark === 'paddy') { // rizières en terrasses : des bandes d'eau qui reflètent le ciel
+      for (let k = 0; k < 4; k++) { const y0 = GY - 4 - k * 7, x0 = Math.round(hash(k * 3.3) * 20) - 10, w = BW - k * 30; for (let xx = Math.max(0, x0); xx < Math.min(BW, x0 + w); xx++) { x.fillStyle = C.moss2; x.fillRect(xx, y0, 1, 1); x.fillStyle = bay(xx, k) < 0.4 ? s.sky[2] : s.sky[1]; x.fillRect(xx, y0 + 1, 1, 2); } }
+      prop(x, PROP.scarecrow, BW * 0.62, GY + 3, s.fog, 0.3); prop(x, PROP.scarecrow, BW * 0.15, GY - 10, s.fog, 0.6); }
+    if (s.mark === 'hill') { prop(x, PROP.sakura, BW * 0.66, GY + 2, s.fog, 0.45);
+      for (const [gx, gy, a] of [[0.1, 2, 0.5], [0.2, 0, 0.62], [0.33, 3, 0.4], [0.86, 1, 0.55], [0.94, 3, 0.4]]) prop(x, PROP.grave, BW * gx, GY + gy, s.fog, a);
+      prop(x, PROP.tomb, BW * 0.58, GY + 4, s.fog, 0.3); x.fillStyle = C.verm; x.fillRect(Math.round(BW * 0.58) + 6, GY + 1, 2, 2); }
     if (s.mark === 'lanterns') { prop(x, PROP.houseDark, BW * 0.02, GY + 2, '#141b1b', 0.55); prop(x, PROP.houseDark, BW * 0.62, GY + 2, '#141b1b', 0.55);
       for (const lx of [0.3, 0.45, 0.88]) { const cx0 = Math.round(BW * lx), cy0 = GY - 10; // lanterne de pierre et sa lueur
         for (let y = -9; y <= 9; y++) for (let xx = -9; xx <= 9; xx++) { const d = Math.hypot(xx, y) / 9; if (d < 1 && bay(xx + 4, y + 4) < (1 - d) * 0.5) { x.fillStyle = C.verm2; x.fillRect(cx0 + xx, cy0 + y, 1, 1); } }

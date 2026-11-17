@@ -5,6 +5,7 @@
 // 「…」と言っていました) et la réplique d'après, où l'on entend revenir la fin perdue.
 // Les répliques guéries ont le droit d'employer leur fin perdue : voir HEALED.
 import type { Line } from './dialogue';
+import { STORY_HEALED } from './story-lines';
 
 export const QUEST_SPEAKERS: Record<string, { name: string; face?: string }> = {
   kage: { name: '{欠|か}けの{影|かげ}' },
@@ -14,6 +15,9 @@ export const QUEST_SPEAKERS: Record<string, { name: string; face?: string }> = {
   yohei: { name: '{与平|よへい}' },
   waka: { name: '{若|わか}き{日|ひ}の{萬作|まんさく}' },
   tsuyu: { name: 'お{露|つゆ}' },
+  tsubu: { name: '{呟|つぶや}き' },
+  mayoi: { name: '{迷|まよ}い' },
+  kiri: { name: '{霧|きり}の{主|ぬし}' },
 };
 
 /** Dialogues où une fin perdue est rendue : la créature apaisée, et le village qui guérit. */
@@ -27,6 +31,18 @@ export const HEALED: Record<string, string[]> = {
   'c3:final': ['かもしれ'],
   'c3:report': ['かもしれ'],
   'c3:after': ['かもしれ'],
+  'r1:give': ['そうよ'],
+  'r1:final': ['と思'],
+  'r1:report': ['と思'],
+  'r1:after': [],
+  'r2:give': ['そうよ'],
+  'r2:final': ['かもしれ'],
+  'r2:report': ['かもしれ'],
+  'r2:after': ['と思'],
+  'c4:omitsu': ['と思'],
+  'c4:final': ['んじゃ'],
+  'c4:report': ['かもしれ'],
+  ...STORY_HEALED,
 };
 
 /** Peinture affichée derrière un souvenir (src/assets/memory/). */
@@ -34,6 +50,9 @@ export const MEMORY_ART: Record<string, string> = {
   'c1:memory': 'mem_mill',
   'c2:memory': 'mem_col',
   'c3:memory': 'mem_bridge',
+  'r1:memory': 'mem_well',
+  'r2:memory': 'mem_field',
+  'c4:memory': 'mem_bedside',
 };
 
 const guess = (q: string, head: string, fr: string, tails: [string, string, string]): Line => ({
@@ -44,6 +63,18 @@ const guess = (q: string, head: string, fr: string, tails: [string, string, stri
     { jp: head + 'かもしれない。', fr: `${fr} (peut-être)`, act: `guess:${q}:kamo` },
     { jp: head + 'そうだ。', fr: `${fr} (paraît-il)`, act: `guess:${q}:souda` },
   ].map((c, i) => ({ ...c, fr: tails[i] })),
+});
+
+// Le cœur de la brume : quatre fins possibles, dont んだ (on explique).
+const guess4 = (q: string, head: string, tails: [string, string, string, string]): Line => ({
+  who: 'player',
+  fr: 'Finis sa phrase : dis celle qui est juste.',
+  choices: [
+    { jp: head + 'と{思|おも}う。', fr: tails[0], act: `guess:${q}:omou` },
+    { jp: head + 'かもしれない。', fr: tails[1], act: `guess:${q}:kamo` },
+    { jp: head + 'そうだ。', fr: tails[2], act: `guess:${q}:souda` },
+    { jp: head + 'んだ。', fr: tails[3], act: `guess:${q}:ndesu` },
+  ],
 });
 
 export const QUEST_DIALOGUES: Record<string, Line[]> = {
@@ -234,6 +265,211 @@ export const QUEST_DIALOGUES: Record<string, Line[]> = {
   'c3:after': [
     { who: 'mansaku', jp: 'お{前|まえ}さんか。{縄|なわ}は、{新|あたら}しくなった。', fr: 'Ah, c’est toi. Les cordes sont neuves.' },
     { who: 'mansaku', jp: '……{霧|きり}は、まだ{晴|は}れん。あの{丘|おか}かもしれんのう。', fr: '… La brume ne se lève toujours pas. C’est peut-être cette colline, hein.' },
+  ],
+
+  // ================= 小、井戸の呟き (おみつ, révision : と思う) =================
+  'r1:give': [
+    { who: 'omitsu', jp: 'あんた、{聞|き}いて！{井戸|いど}の{底|そこ}から、{夜|よる}になると{声|こえ}がするそうよ。', fr: 'Toi, écoute ! Il paraît qu’au fond du puits, la nuit, on entend une voix.' },
+    { who: 'player', jp: 'どんな{声|こえ}ですか。', fr: 'Quel genre de voix ?' },
+    { who: 'omitsu', jp: 'おじいさんの{声|こえ}。『おみつのお{団子|だんご}は……』って。……あたしのお{団子|だんご}よ？', fr: 'Une voix de vieux. « Les dango d’Omitsu… ». … Mes dango à moi ?' },
+    { who: 'omitsu', jp: '{続|つづ}きが{気|き}になって、{夜|よる}も{眠|ねむ}れないの。お{願|ねが}い、{調|しら}べて！', fr: 'Je veux savoir la suite, je n’en dors plus. S’il te plaît, va voir !' },
+    { who: 'wake', fr: 'Elle a retrouvé ses rumeurs, et elle ne va plus s’arrêter. Bon. Qui traîne près du puits ? 太一 joue partout. Et おたね est toujours sur la place.' },
+  ],
+  'r1:taichi': [
+    { who: 'player', jp: '{夜|よる}、{井戸|いど}のそばで、だれかを{見|み}ましたか。', fr: 'La nuit, tu as vu quelqu’un près du puits ?' },
+    { who: 'taichi', jp: '{見|み}た！{萬作|まんさく}じいちゃん。ひとりで、お{団子|だんご}を{食|た}べてた。', fr: 'Oui ! Papi Mansaku. Il mangeait des dango, tout seul.' },
+    { who: 'player', jp: '{何|なに}か{言|い}っていましたか。', fr: 'Il disait quelque chose ?' },
+    { who: 'taichi', jp: '『うまい』って。{小|ちい}さい{声|こえ}で。でも、おみつ{姉|ねえ}ちゃんの{前|まえ}では、『{甘|あま}い』しか{言|い}わないもん。', fr: '« C’est bon », tout bas. Mais devant Omitsu, il ne dit que « c’est sucré ».' },
+    { who: 'wake', fr: 'Tout bas, quand personne n’écoute. Un avis qu’on garde pour soi, ça.' },
+  ],
+  'r1:otane': [
+    { who: 'player', jp: '{萬作|まんさく}さんは、おみつさんのお{団子|だんご}をよく{食|た}べるんですか。', fr: 'Mansaku mange souvent les dango d’Omitsu ?' },
+    { who: 'otane', jp: '{毎日|まいにち}。{雨|あめ}の{日|ひ}も、{霧|きり}の{日|ひ}も。', fr: 'Tous les jours. Les jours de pluie, les jours de brume.' },
+    { who: 'player', jp: 'だれかと、お{団子|だんご}の{話|はなし}をしますか。', fr: 'Il en parle avec quelqu’un, de ces dango ?' },
+    { who: 'otane', jp: 'しない。あの{人|ひと}は、{人|ひと}の{話|はなし}より、{自分|じぶん}の{舌|した}。', fr: 'Non. Lui, il se fie à sa langue, pas à ce qu’on raconte.' },
+    { who: 'wake', fr: 'Il ne répète personne, et il ne doute pas : tous les jours, par tous les temps. C’est son goût à lui. Le puits, maintenant.' },
+  ],
+  'r1:site': [
+    { who: 'tsubu', jp: 'おみつのお{団子|だんご}は、うまい……。', fr: 'Les dango d’Omitsu, ils sont bons…' },
+    { who: 'wake', fr: 'Il marmonne au fond de l’eau. Finis sa phrase.' },
+    guess('r1', 'おみつのお{団子|だんご}は、うまい', 'Les dango d’Omitsu sont bons', [
+      'Je trouve que les dango d’Omitsu sont bons.',
+      'Les dango d’Omitsu sont peut-être bons.',
+      'Il paraît que les dango d’Omitsu sont bons.',
+    ]),
+    { who: 'wake', fr: 'Allons-y. Et ne tombe pas dedans.' },
+  ],
+  'r1:final': [{ who: 'mansaku', jp: 'おみつのお{団子|だんご}は、うまいと{思|おも}う。', fr: 'Je trouve que les dango d’Omitsu sont bons.' }],
+  'r1:memory': [
+    { who: 'omitsu', jp: '{萬作|まんさく}さん、お{団子|だんご}、どう？', fr: 'Mansaku, les dango, comment tu les trouves ?' },
+    { who: 'mansaku', jp: '……{甘|あま}い。', fr: '… Sucrés.' },
+    { who: 'omitsu', jp: 'それだけ？', fr: 'C’est tout ?' },
+    { who: 'mansaku', jp: '……それだけじゃ。', fr: '… C’est tout.' },
+    { who: 'mansaku', jp: '（……おみつのお{団子|だんご}は、うまい……）', fr: '(… Les dango d’Omitsu, ils sont bons…)' },
+    { who: 'wake', fr: 'Il n’a jamais pu le lui dire en face. Alors il l’a dit au puits, tous les soirs. Le puits a fini par répondre.' },
+  ],
+  'r1:right': [
+    { who: 'wake', fr: 'Bien vu : son goût à lui. Pas un on-dit, pas un doute. と思う.' },
+    { who: 'wake', fr: 'Va le dire à おみつ. Je veux voir sa tête.' },
+  ],
+  'r1:wrong': [
+    { who: 'wake', fr: 'Raté. Il en mangeait tous les jours et se fiait à sa langue, pas aux rumeurs : おたね l’a dit. C’était son avis : と思う.' },
+    { who: 'wake', fr: 'Va le dire à おみつ. Je veux voir sa tête.' },
+  ],
+  'r1:report': [
+    { who: 'omitsu', jp: 'どうだった？{井戸|いど}の{声|こえ}は？', fr: 'Alors ? La voix du puits ?' },
+    { who: 'player', jp: '{萬作|まんさく}さんは、「おみつのお{団子|だんご}は、うまいと{思|おも}う」と{言|い}っていました。', fr: 'Mansaku disait : « Je trouve que les dango d’Omitsu sont bons. »' },
+    { who: 'omitsu', jp: '……{萬作|まんさく}さんが？{毎日|まいにち}{来|き}て、『{甘|あま}い』しか{言|い}わないのに？', fr: '… Mansaku ? Il vient tous les jours et il ne dit que « sucrés » !' },
+    { who: 'omitsu', jp: '……ふふ。{明日|あした}から、{一本|いっぽん}おまけしようかしら。', fr: '… Hi hi. À partir de demain, je lui mets une brochette en plus, tiens.' },
+    { who: 'wake', fr: 'Un tout petit contrat. Je crois que c’est mon préféré.' },
+  ],
+  'r1:after': [
+    { who: 'omitsu', jp: '{萬作|まんさく}さん、{今日|きょう}も{来|き}たわ。『{甘|あま}い』って。', fr: 'Mansaku est encore venu aujourd’hui. « Sucrés », qu’il a dit.' },
+    { who: 'omitsu', jp: '……でも、{一本|いっぽん}{多|おお}く{食|た}べたの。', fr: '… Mais il en a mangé une de plus.' },
+  ],
+
+  // ================= 小、案山子の迷い (おたね, révision : かもしれない) =================
+  'r2:give': [
+    { who: 'otane', jp: '{旅|たび}の{人|ひと}。{田|た}んぼの{案山子|かかし}が、{夕方|ゆうがた}になると、しゃべるそうよ。', fr: 'Voyageur. Il paraît que l’épouvantail des rizières parle, au crépuscule.' },
+    { who: 'otane', jp: '{権兵衛|ごんべえ}さんの{声|こえ}で。『おたねさんの{漬物|つけもの}は……』って。', fr: 'Avec la voix de Gonbei. « Les pickles d’Otane… »' },
+    { who: 'player', jp: 'おたねさんの{漬物|つけもの}ですか。', fr: 'Vos pickles ?' },
+    { who: 'otane', jp: 'わたしの{漬物|つけもの}。……{続|つづ}きが{気|き}になる。{聞|き}いてきて。', fr: 'Mes pickles. … Je veux savoir la suite. Va écouter.' },
+    { who: 'wake', fr: 'Encore une rumeur. Ce village rattrape dix ans de commérages en une semaine.' },
+    { who: 'wake', fr: '権兵衛 est dans ses rizières. Et おみつ sait tout sur tout le monde.' },
+  ],
+  'r2:gonbei': [
+    { who: 'player', jp: '{案山子|かかし}の{声|こえ}は、{権兵衛|ごんべえ}さんの{声|こえ}ですか。', fr: 'La voix de l’épouvantail, c’est la vôtre ?' },
+    { who: 'gonbei', jp: '……おれの{声|こえ}。', fr: '… Ma voix.' },
+    { who: 'player', jp: 'おたねさんの{漬物|つけもの}を、よく{食|た}べますか。', fr: 'Vous mangez souvent les pickles d’Otane ?' },
+    { who: 'gonbei', jp: '{食|た}べる。もう{一|ひと}つ{食|た}べる。{首|くび}を、かしげる。', fr: 'J’en mange. J’en reprends un. Je penche la tête.' },
+    { who: 'gonbei', jp: '……わからない。おれの{舌|した}が、{変|へん}なのか。', fr: '… Je ne sais pas. C’est ma langue qui est bizarre, peut-être.' },
+    { who: 'wake', fr: 'Il goûte, il reprend, il penche la tête. Il n’est pas sûr de lui. Retiens ça.' },
+  ],
+  'r2:omitsu': [
+    { who: 'player', jp: '{権兵衛|ごんべえ}さんは、だれかに{漬物|つけもの}の{話|はなし}を{聞|き}きましたか。', fr: 'Quelqu’un a parlé des pickles à Gonbei ?' },
+    { who: 'omitsu', jp: '{聞|き}いてないわ。おたねさんの{漬物|つけもの}の{話|はなし}なんて、だれもしないわよ。', fr: 'Non. Personne ne parle des pickles d’Otane, voyons.' },
+    { who: 'omitsu', jp: 'でもね、{権兵衛|ごんべえ}さん、{毎日|まいにち}おたねさんの{家|いえ}に{行|い}くの。だから、お{嫁|よめ}さんを{探|さが}してるって{噂|うわさ}。', fr: 'Mais Gonbei va chez Otane tous les jours. D’où la rumeur qu’il se cherche une épouse.' },
+    { who: 'wake', fr: 'Personne ne lui en a parlé, donc ce n’est pas un on-dit. Le reste, je préfère ne pas le traduire.' },
+  ],
+  'r2:site': [
+    { who: 'mayoi', jp: 'おたねさんの{漬物|つけもの}は、ちょっとしょっぱい……。', fr: 'Les pickles d’Otane, ils sont un peu salés…' },
+    { who: 'wake', fr: 'Il penche la tête, comme son propriétaire. Finis sa phrase.' },
+    guess('r2', 'おたねさんの{漬物|つけもの}は、ちょっとしょっぱい', 'Les pickles d’Otane sont un peu salés', [
+      'Je trouve que les pickles d’Otane sont un peu salés.',
+      'Les pickles d’Otane sont peut-être un peu salés.',
+      'Il paraît que les pickles d’Otane sont un peu salés.',
+    ]),
+    { who: 'wake', fr: 'Allons-y. Doucement : c’est pour la bonne cause.' },
+  ],
+  'r2:final': [{ who: 'gonbei', jp: 'おたねさんの{漬物|つけもの}は、ちょっとしょっぱいかもしれない。', fr: 'Les pickles d’Otane sont peut-être un peu salés.' }],
+  'r2:memory': [
+    { who: 'otane', jp: '{権兵衛|ごんべえ}さん、{漬物|つけもの}、どう？', fr: 'Gonbei, les pickles, comment tu les trouves ?' },
+    { who: 'gonbei', jp: '……もう{一|ひと}つ。', fr: '… Encore un.' },
+    { who: 'otane', jp: 'どう？', fr: 'Alors ?' },
+    { who: 'gonbei', jp: '……おたねさんの{漬物|つけもの}は、ちょっとしょっぱい……', fr: '… Les pickles d’Otane, ils sont un peu salés…' },
+    { who: 'gonbei', jp: '……いや。{水|みず}、ください。', fr: '… Non. De l’eau, s’il vous plaît.' },
+    { who: 'wake', fr: 'Il n’était pas sûr. Alors il a demandé de l’eau. Pendant des années.' },
+  ],
+  'r2:right': [
+    { who: 'wake', fr: 'Bien vu : il hésitait, et personne ne lui avait rien dit. かもしれない : un doute. Et un doute poli.' },
+    { who: 'wake', fr: 'Va voir おたね. Avec tact.' },
+  ],
+  'r2:wrong': [
+    { who: 'wake', fr: 'Pas ça. Il goûtait, reprenait, penchait la tête : il n’était pas sûr. Et personne ne lui en avait parlé, おみつ l’a dit. C’était un doute : かもしれない.' },
+    { who: 'wake', fr: 'Va voir おたね. Avec tact.' },
+  ],
+  'r2:report': [
+    { who: 'otane', jp: '……{案山子|かかし}、{静|しず}かになった。', fr: '… L’épouvantail s’est tu.' },
+    { who: 'player', jp: '{権兵衛|ごんべえ}さんは、「おたねさんの{漬物|つけもの}は、ちょっとしょっぱいかもしれない」と{言|い}っていました。', fr: 'Gonbei disait : « Les pickles d’Otane sont peut-être un peu salés. »' },
+    { who: 'otane', jp: '……しょっぱい。', fr: '… Salés.' },
+    { who: 'otane', jp: '……{塩|しお}、{少|すこ}し{減|へ}らすかもしれない。', fr: '… Je mettrai peut-être un peu moins de sel.' },
+    { who: 'wake', fr: 'Elle le prend bien. Je crois. Elle serre un peu fort son bol, quand même.' },
+  ],
+  'r2:after': [
+    { who: 'otane', jp: '{権兵衛|ごんべえ}さん、{今日|きょう}、{漬物|つけもの}を{三|みっ}つ{食|た}べた。', fr: 'Gonbei a mangé trois pickles, aujourd’hui.' },
+    { who: 'otane', jp: 'おいしいと{思|おも}うって。……{水|みず}は、{飲|の}まなかった。', fr: 'Il les trouve bons, qu’il a dit. … Et il n’a pas bu d’eau.' },
+  ],
+
+  // ================= 四、霧の丘 (萬作, le cœur de la brume : んだ) =================
+  'c4:give': [
+    { who: 'mansaku', jp: '……{丘|おか}の{霧|きり}か。', fr: '… La brume de la colline.' },
+    { who: 'player', jp: '{霧|きり}は、{丘|おか}から{来|き}ているんですか。', fr: 'La brume vient de la colline ?' },
+    { who: 'mansaku', jp: '……{知|し}らん。', fr: '… J’en sais rien.' },
+    { who: 'mansaku', jp: '{何|なに}も、{言|い}えん。……すまん。', fr: 'Je ne peux rien dire. … Désolé.' },
+    { who: 'wake', fr: 'Il ne peut pas en parler. Ça le serre trop. 太一 traîne partout le soir. Et おみつ connaissait sa femme.' },
+  ],
+  'c4:taichi': [
+    { who: 'player', jp: '{夜|よる}、{萬作|まんさく}さんを{見|み}ましたか。', fr: 'Tu as vu Mansaku, le soir ?' },
+    { who: 'taichi', jp: '{見|み}た。{毎晩|まいばん}、{丘|おか}のお{墓|はか}に{行|い}く。お{花|はな}を{持|も}って。', fr: 'Oui. Tous les soirs, il va à la tombe, sur la colline. Avec des fleurs.' },
+    { who: 'player', jp: 'お{墓|はか}の{前|まえ}で、{何|なに}をしていましたか。', fr: 'Qu’est-ce qu’il fait, devant la tombe ?' },
+    { who: 'taichi', jp: '{口|くち}を、あけて……とじる。あけて、とじる。{何|なに}も{言|い}わない。', fr: 'Il ouvre la bouche… et il la ferme. Il l’ouvre, il la ferme. Il ne dit rien.' },
+    { who: 'player', jp: 'お{露|つゆ}さんを{知|し}っていますか。', fr: 'Tu connaissais Tsuyu ?' },
+    { who: 'taichi', jp: 'お{露|つゆ}ばあちゃん？{知|し}らない。ぼくが{生|う}まれる{前|まえ}だもん。', fr: 'Mamie Tsuyu ? Non. C’était avant que je naisse, voyons.' },
+    { who: 'wake', fr: 'Tous les soirs, une phrase qui commence et qui ne sort pas. Je crois savoir d’où vient la brume.' },
+  ],
+  'c4:omitsu': [
+    { who: 'player', jp: 'お{露|つゆ}さんは、どんな{人|ひと}でしたか。', fr: 'Comment était Tsuyu ?' },
+    { who: 'omitsu', jp: 'やさしい{人|ひと}。あたしが{小|ちい}さいとき、よくお{茶|ちゃ}を{飲|の}みに{来|き}たわ。', fr: 'Douce. Quand j’étais petite, elle venait souvent boire le thé.' },
+    { who: 'omitsu', jp: 'いつも{言|い}ってた。『あの{人|ひと}、{何|なに}か{言|い}いたい{顔|かお}をしてる。どうしたのって{聞|き}いても、{霧|きり}の{話|はなし}ばかり』って。', fr: 'Elle disait toujours : « Il a l’air de vouloir me dire quelque chose. Quand je lui demande ce qu’il y a, il ne parle que de la brume. »' },
+    { who: 'player', jp: 'お{露|つゆ}さんは、{理由|りゆう}を{聞|き}きたかったんですね。', fr: 'Tsuyu voulait savoir pourquoi, alors.' },
+    { who: 'omitsu', jp: '……そうね。ずっと、{待|ま}ってたと{思|おも}うわ。', fr: '… Oui. Je crois qu’elle a attendu longtemps.' },
+    { who: 'wake', fr: '« Qu’est-ce qu’il y a ? » : elle lui demandait une explication. Retiens bien ça. La colline, maintenant. La tombe de お露.' },
+  ],
+  'c4:site': [
+    { who: 'kiri', jp: 'わしは、お{前|まえ}に……。', fr: 'Moi, à toi…' },
+    { who: 'kiri', jp: 'わしは、お{前|まえ}に……{礼|れい}を{言|い}いたかった……。', fr: 'Moi, à toi… je voulais te remercier…' },
+    { who: 'wake', fr: 'C’est elle. La brume entière. Tout le village tenait dans cette phrase-là.' },
+    { who: 'wake', fr: 'Elle lui demandait ce qu’il y avait. Il lui devait une explication. Finis-la : quatre fins, cette fois.' },
+    guess4('c4', 'お{前|まえ}に、{礼|れい}を{言|い}いたかった', [
+      'Je crois que je voulais te remercier.',
+      'Je voulais peut-être te remercier.',
+      'Il paraît que je voulais te remercier.',
+      'C’est que je voulais te remercier.',
+    ]),
+    { who: 'wake', fr: 'Allons-y. C’est la dernière.' },
+  ],
+  'c4:final': [{ who: 'mansaku', jp: 'わしはな、お{前|まえ}に{礼|れい}を{言|い}いたかったんじゃ。', fr: 'Tu sais, ce que je voulais, c’était te remercier.' }],
+  'c4:memory': [
+    { who: 'tsuyu', jp: '{萬作|まんさく}さん……どうしたの？そんな{顔|かお}して。', fr: 'Mansaku… qu’est-ce qu’il y a ? Tu en fais une tête.' },
+    { who: 'mansaku', jp: '……{霧|きり}じゃ。{今日|きょう}も、{霧|きり}じゃ。', fr: '… Du brouillard. Encore du brouillard aujourd’hui.' },
+    { who: 'tsuyu', jp: 'ふふ。いつも、それ。', fr: 'Hi hi. Toujours la même chose.' },
+    { who: 'mansaku', jp: 'わしは、お{前|まえ}に……', fr: 'Moi, à toi…' },
+    { who: 'tsuyu', jp: '……うん？', fr: '… Oui ?' },
+    { who: 'mansaku', jp: '……いや。{明日|あした}、{言|い}う。', fr: '… Non. Je te le dirai demain.' },
+    { who: 'wake', fr: 'Il n’y a pas eu de lendemain. Depuis dix ans, il parle du temps qu’il fait. Et la brume n’est jamais repartie.' },
+  ],
+  'c4:right': [
+    { who: 'wake', fr: 'Bien vu. Elle demandait une explication, il en devait une : んだ.' },
+    { who: 'wake', fr: 'Et tu as entendu ? Il a dit んじゃ. C’est ton んだ, dans la bouche d’un vieil homme. Même phrase, autre voix.' },
+    { who: 'wake', fr: 'Va voir 萬作. Il faut qu’il l’entende de quelqu’un.' },
+  ],
+  'c4:wrong': [
+    { who: 'wake', fr: 'Pas tout à fait. Elle lui demandait どうしたの, « qu’est-ce qu’il y a » : à un の, on répond par un の. Il ne doutait pas, il ne répétait personne. Il expliquait : んだ.' },
+    { who: 'wake', fr: 'Et il a dit んじゃ : c’est ton んだ, dans la bouche d’un vieil homme.' },
+    { who: 'wake', fr: 'Va voir 萬作. Il faut qu’il l’entende de quelqu’un.' },
+  ],
+  'c4:report': [
+    { who: 'mansaku', jp: '……{丘|おか}の{霧|きり}が、{薄|うす}くなった。', fr: '… La brume de la colline s’est éclaircie.' },
+    { who: 'player', jp: '{霧|きり}の{中|なか}の{声|こえ}は、「お{前|まえ}に{礼|れい}を{言|い}いたかったんだ」と{言|い}っていました。', fr: 'La voix dans la brume disait : « C’est que je voulais te remercier. »' },
+    { who: 'mansaku', jp: '……わしの{声|こえ}か。', fr: '… Ma voix.' },
+    { who: 'mansaku', jp: '{十年|じゅうねん}じゃ。{十年|じゅうねん}、{霧|きり}の{話|はなし}ばかりしておった。', fr: 'Dix ans. Dix ans que je ne parle que de la brume.' },
+    { who: 'mansaku', jp: '……{行|い}ってくる。{今|いま}なら、{言|い}えるかもしれん。', fr: '… J’y vais. Maintenant, j’y arriverai peut-être.' },
+  ],
+  'site-well': [
+    { who: 'sign', jp: '{井戸|いど}', fr: 'Le puits.' },
+    { who: 'wake', fr: 'De l’eau noire, tout au fond. Elle sent la pierre froide.' },
+  ],
+  'site-well:done': [
+    { who: 'sign', jp: '{井戸|いど}', fr: 'Le puits.' },
+    { who: 'wake', fr: 'Plus un murmure. Quelqu’un a posé une brochette de dango sur la margelle. Pour le puits, sans doute.' },
+  ],
+  'site-scarecrow': [
+    { who: 'sign', jp: '{案山子|かかし}', fr: 'Un épouvantail.' },
+    { who: 'wake', fr: 'Il a la tête un peu penchée. Comme quelqu’un qui hésite.' },
+  ],
+  'site-scarecrow:done': [
+    { who: 'sign', jp: '{案山子|かかし}', fr: 'Un épouvantail.' },
+    { who: 'wake', fr: 'Il se tient droit, maintenant. On dirait qu’il a dit ce qu’il avait à dire.' },
   ],
 
   // ================= sites hors contrat, défaite =================

@@ -24,7 +24,7 @@ def sprite(name, out, h, solid=0.9):
     w=round(img.width*h/img.height); img=img.resize((w,h),Image.LANCZOS)
     img.save(O+out,'WEBP',quality=80,method=6)
     print(out,img.size,os.path.getsize(O+out))
-for n,o in [('m1_kake','kake'),('m2_kuzure','kuzure'),('m3_yuragi','yuragi'),('m4_tsutae','tsutae'),('m5_wake','wake'),('m6_ou','ou')]:
+for n,o in [('m1_kake','kake'),('m2_kuzure','kuzure'),('m3_yuragi','yuragi'),('m4_tsutae','tsutae'),('m5_wake','wake'),('m6_ou','ou'),('m7_kiri','kiri'),('m8_tsubu','tsubu'),('m9_mayoi','mayoi')]:
     sprite(n+'.png',o+'.webp',600)
 sprite('p_ready.png','p_ready.webp',520,0.95); sprite('p_slash.png','p_slash.webp',520,0.6)
 for n in ['bg_temple','bg_village']:

@@ -24,7 +24,7 @@ INK = ['#141b1b', '#2b2a33', '#4e484a', '#8e8a8c', '#d2c9c9', '#f2eaf1']
 RED = ['#681f14', '#9e2919', '#d4412b']
 
 # Hauteur du sprite, en pixels du jeu. Le roi est plus grand ; l'effondrement, large, un peu moins haut.
-SIZE = {'kake': 66, 'kuzure': 62, 'yuragi': 68, 'tsutae': 66, 'wake': 70, 'ou': 84}
+SIZE = {'kake': 66, 'kuzure': 62, 'yuragi': 68, 'tsutae': 66, 'wake': 70, 'ou': 84, 'tsubu': 62, 'mayoi': 70, 'kiri': 86}
 
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16 - 0.5
 

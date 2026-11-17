@@ -40,6 +40,11 @@ export class VillageScene extends Phaser.Scene {
   private busy = false;
   private saveClock = 0;
   private marks = new Map<string, Phaser.GameObjects.Image>();
+  private cutting = false; // une cinématique en pixel déplace les personnages : les touches ne comptent plus
+  private blobs: Phaser.GameObjects.Image[] = [];
+  private barrierFog: Phaser.GameObjects.Image[] = [];
+  private fogSaidAt = -1e9;
+  private lastPos = { x: 0, y: 0 };
 
   constructor() {
     super('village');
@@ -53,6 +58,9 @@ export class VillageScene extends Phaser.Scene {
     this.busy = false;
     this.npcs = [];
     this.trail = [];
+    this.cutting = false;
+    this.blobs = [];
+    this.barrierFog = [];
     drawMap(this, this.built);
 
     // Point d'arrivée : la position sauvegardée si on recharge la page dans le village, sinon l'entrée.
@@ -70,6 +78,8 @@ export class VillageScene extends Phaser.Scene {
     // ワケ, le petit esprit d'encre, suit le sabreur.
     this.wake = this.add.sprite(this.player.x - 12, this.player.y - 6, 'actors/spirit', 0).setOrigin(0.5, 1).setAlpha(0.88);
     this.wake.setTint(0xc9d2d8);
+    // Avant le prologue, ワケ est encore coincé dans la borne du col.
+    this.wake.setVisible(!!save.flags.wake);
 
     this.makeFog();
     this.setupCamera();
@@ -80,7 +90,8 @@ export class VillageScene extends Phaser.Scene {
     saveWorld();
     UI.showUi(true);
     UI.vignette(true);
-    this.game.canvas.style.filter = 'saturate(0.74) brightness(0.94) contrast(1.05)';
+    this.game.canvas.style.transition = '';
+    this.game.canvas.style.filter = this.healed() ? 'saturate(0.95) brightness(1) contrast(1.03)' : 'saturate(0.74) brightness(0.94) contrast(1.05)';
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     hooks.beforeSave = () => this.storePos();
     hooks.act = (a) => Quests.act(a);
@@ -88,8 +99,9 @@ export class VillageScene extends Phaser.Scene {
     this.refreshQuest();
 
     this.cameras.main.fadeIn(600, 5, 5, 5);
-    UI.placeCard(this.def.name, this.def.fr);
-    if (!save.hints) {
+    const prologue = this.def.id === 'pass' && !save.flags.prologue;
+    if (!prologue) UI.placeCard(this.def.name, this.def.fr);
+    if (!save.hints && !prologue) {
       UI.hint(
         '<kbd>ZQSD</kbd> ou <kbd>↑←↓→</kbd> marcher · <kbd>Maj</kbd> courir<br><kbd>Espace</kbd> parler, lire · <kbd>T</kbd> ワケ traduit · clic sur un mot : son sens<br><kbd>A</kbd> オート · <kbd>Ctrl</kbd> スキップ · <kbd>B</kbd> バックログ · <kbd>Échap</kbd> メニュー · <kbd>M</kbd> son',
         16000,
@@ -107,11 +119,14 @@ export class VillageScene extends Phaser.Scene {
           this.refreshQuest();
         }),
       );
-    } else if (!save.seen['arrival:' + this.def.id]) {
+    } else if (prologue) {
+      this.busy = true;
+      void this.prologue();
+    } else if (this.def.id === 'kirino' && !save.seen['arrival:' + this.def.id]) {
       save.seen['arrival:' + this.def.id] = true;
       saveWorld();
       this.busy = true;
-      this.time.delayedCall(1700, () => UI.openDialog('arrival', () => (this.busy = false)));
+      void this.arrival(save.gate === 'north');
     }
 
     // Première partie d'une nouvelle semaine : le bilan de la précédente, une fois l'arrivée posée.
@@ -127,6 +142,9 @@ export class VillageScene extends Phaser.Scene {
         this.interact();
       },
       quests: () => JSON.parse(JSON.stringify(world().quests)),
+      flags: () => ({ ...world().flags }),
+      busy: () => this.busy,
+      card: (end = false) => UI.chapterCard('第一章', '霧の村', end ? 'Fin du premier chapitre' : 'Chapitre premier · Le village de la brume', end),
       hud: () => Quests.hud(),
       mark: (id: string) => Quests.marker(id),
     };
@@ -225,14 +243,24 @@ export class VillageScene extends Phaser.Scene {
       this.textures.addCanvas('fogblob', b)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
     const w = this.def.width * TILE, h = this.def.height * TILE;
-    const a = this.def.fog;
+    const a = this.def.fog * (this.healed() ? 0.22 : 1);
     this.fog = [
       this.add.tileSprite(0, 0, w, h, 'fog').setOrigin(0).setDepth(DEPTH.fog).setAlpha(a),
       this.add.tileSprite(0, 0, w, h, 'fog').setOrigin(0).setDepth(DEPTH.fog).setAlpha(a * 0.8).setTileScale(1.9),
     ];
-    // La brume est plus épaisse sur la colline du cimetière.
-    for (const [x, y, sc] of [[39.5, 33, 0.9], [36, 35, 0.6], [43, 31, 0.5]])
-      this.add.image(x * TILE, y * TILE, 'fogblob').setDepth(DEPTH.fog).setAlpha(0.7).setScale(sc);
+    // La brume est plus épaisse sur la colline du cimetière (jusqu'à l'épilogue).
+    if (this.def.id === 'kirino' && !this.healed())
+      for (const [x, y, sc] of [[39.5, 33, 0.9], [36, 35, 0.6], [43, 31, 0.5]])
+        this.blobs.push(this.add.image(x * TILE, y * TILE, 'fogblob').setDepth(DEPTH.fog).setAlpha(0.7).setScale(sc));
+    // Au col, la brume qui barre la descente.
+    for (const b of this.def.barriers ?? [])
+      if (!world().flags[b.flag])
+        for (const [x, y] of b.cells) this.barrierFog.push(this.add.image((x + 0.5) * TILE, (y + 0.5) * TILE, 'fogblob').setDepth(DEPTH.fog).setAlpha(0.95).setScale(0.32));
+  }
+
+  /** Le village a retrouvé sa voix (épilogue joué) : brume légère, couleurs revenues. */
+  private healed(): boolean {
+    return this.def.id === 'kirino' && !!world().flags.ch1;
   }
 
   // ---------- boucle ----------
@@ -246,14 +274,17 @@ export class VillageScene extends Phaser.Scene {
 
     const down = (k: Phaser.Input.Keyboard.Key[]) => k.some((x) => x.isDown);
     let vx = 0, vy = 0;
-    if (!this.busy && !UI.dialogOpen() && !UI.panelOpen()) {
+    if (!this.busy && !this.cutting && !UI.dialogOpen() && !UI.panelOpen()) {
       if (down(this.keys.left)) vx -= 1;
       if (down(this.keys.right)) vx += 1;
       if (down(this.keys.up)) vy -= 1;
       if (down(this.keys.down)) vy += 1;
     }
-    const moving = vx !== 0 || vy !== 0;
-    if (moving) {
+    let moving = vx !== 0 || vy !== 0;
+    if (this.cutting) {
+      // Pendant une cinématique, c'est le script qui fait marcher le sabreur.
+      moving = this.player.x !== this.lastPos.x || this.player.y !== this.lastPos.y;
+    } else if (moving) {
       const len = Math.hypot(vx, vy);
       const sp = (down(this.keys.run) ? RUN : WALK) * dt;
       const horiz: Dir = vx < 0 ? 'left' : 'right', vert: Dir = vy < 0 ? 'up' : 'down';
@@ -266,13 +297,16 @@ export class VillageScene extends Phaser.Scene {
       this.player.anims.stop();
       this.player.setFrame(idleFrame(this.face));
     }
+    this.lastPos = { x: this.player.x, y: this.player.y };
     this.player.setDepth(DEPTH.actors + this.player.y * 1e-5);
     for (const n of this.npcs) n.sprite.setDepth(DEPTH.actors + n.sprite.y * 1e-5);
     const bob = Math.round(Math.sin(this.time.now / 260) * 1.5);
     for (const n of this.npcs) this.marks.get(n.def.id)?.setPosition(n.sprite.x, n.sprite.y - 19 + bob);
 
     this.followWake(dt, moving);
+    if (this.cutting) return;
     this.checkExit();
+    this.storyTriggers();
     this.updateTarget();
     this.updateAmbience();
 
@@ -294,7 +328,14 @@ export class VillageScene extends Phaser.Scene {
       const side = ty < 0 ? 'north' : 'south';
       return !this.def.exits.some((e) => e.side === side && tx >= e.from && tx <= e.to);
     }
+    if (this.barrierAt(tx, ty)) return true;
     return this.built.solid[ty * W + tx] === 1;
+  }
+
+  /** La brume du col barre la descente tant que ワケ n'est pas libéré. */
+  private barrierAt(tx: number, ty: number) {
+    const f = world().flags;
+    return this.def.barriers?.find((b) => !f[b.flag] && b.cells.some(([x, y]) => x === tx && y === ty));
   }
 
   private blocked(x: number, y: number): boolean {
@@ -366,6 +407,11 @@ export class VillageScene extends Phaser.Scene {
   private interact(): void {
     const t = this.target;
     if (!t || this.busy) return;
+    if (t.kind === 'read' && t.id === 'post' && !world().flags.wake) {
+      this.busy = true;
+      void this.freeWake();
+      return;
+    }
     if (t.kind === 'read') {
       // Un objet peut être le site d'un contrat : la créature s'y montre, on finit sa phrase, puis on chasse.
       const plan = Quests.sitePlan(t.id, this.def.readables[t.id] ?? t.id);
@@ -392,13 +438,18 @@ export class VillageScene extends Phaser.Scene {
       world().seen['talk:' + t.id] = true;
       plan.after?.();
       saveWorld();
-      const q = Quests.questById(plan.ids.find((i) => /^c\d:/.test(i))?.split(':')[0] ?? '');
-      if (accepting && q) UI.placeCard(q.title, `依頼 · ${q.fr}`, '依');
+      const q = Quests.questById(plan.ids.find((i) => Quests.RX_QUEST.test(i))?.split(':')[0] ?? '');
+      if (accepting && q) UI.placeCard(q.title, `${q.side ? '小依頼' : '依頼'} · ${q.fr}`, '依');
       if (reporting && q) {
         UI.placeCard(q.title, 'Contrat rempli', '了');
         UI.toast(`縁 ＋1 <small>${Quests.NAMES[t.id] ?? ''}</small>`);
       }
       this.refreshQuest();
+      // Le cœur de la brume rapporté : 萬作 monte enfin sur la colline, et c'est l'épilogue.
+      if (reporting && q?.id === 'c4') {
+        this.busy = true;
+        void this.epilogue();
+      }
     });
   }
 
@@ -464,6 +515,239 @@ export class VillageScene extends Phaser.Scene {
     this.time.delayedCall(820, () => this.scene.start('combat', { quest: q.id }));
   }
 
+  // ---------- le fil de l'histoire : prologue, arrivée, épilogue ----------
+
+  private wait(ms: number): Promise<void> {
+    return new Promise((r) => this.time.delayedCall(ms, () => r()));
+  }
+
+  private say(...ids: string[]): Promise<void> {
+    return new Promise((r) => UI.openChain(ids, () => r()));
+  }
+
+  private npc(id: string): Npc | undefined {
+    return this.npcs.find((n) => n.def.id === id);
+  }
+
+  private sprite(id: string): Phaser.GameObjects.Sprite | undefined {
+    return id === 'player' ? this.player : id === 'wake' ? this.wake : this.npc(id)?.sprite;
+  }
+
+  private turn(id: string, dir: Dir): void {
+    const s = this.sprite(id);
+    s?.anims.stop();
+    s?.setFrame(idleFrame(dir));
+    if (id === 'player') this.face = dir;
+  }
+
+  private place(id: string, x: number, y: number, dir: Dir): void {
+    const s = this.sprite(id);
+    if (!s) return;
+    s.setPosition(x * TILE, y * TILE);
+    this.turn(id, dir);
+    if (id === 'player') this.trail = [];
+  }
+
+  /** Fait marcher un personnage de point en point (en tuiles), avec son animation de marche. */
+  private async walk(id: string, pts: [number, number][], speed = WALK): Promise<void> {
+    const s = this.sprite(id);
+    if (!s) return;
+    const key = id === 'player' ? 'actors/samuraiblue' : this.npc(id)!.def.sprite;
+    let dir: Dir = 'down';
+    for (const [tx, ty] of pts) {
+      const X = tx * TILE, Y = ty * TILE, dx = X - s.x, dy = Y - s.y, d = Math.hypot(dx, dy);
+      if (d < 0.5) continue;
+      dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+      s.anims.play(`${key}:${dir}`, true);
+      await new Promise<void>((r) => this.tweens.add({ targets: s, x: X, y: Y, duration: (d / speed) * 1000, onComplete: () => r() }));
+    }
+    this.turn(id, dir);
+  }
+
+  /** Déplace la caméra vers une case, sans suivre le sabreur. */
+  private async pan(x: number, y: number, ms = 1400): Promise<void> {
+    const cam = this.cameras.main;
+    cam.stopFollow();
+    cam.pan(x * TILE, y * TILE, ms, 'Sine.easeInOut', true);
+    await this.wait(ms + 100);
+  }
+
+  private async follow(ms = 900): Promise<void> {
+    await this.pan(this.player.x / TILE, this.player.y / TILE - 0.5, ms);
+    this.cameras.main.startFollow(this.player, true, 0.14, 0.14, 0, TILE / 2);
+  }
+
+  private fade(out: boolean, ms = 700): Promise<void> {
+    const cam = this.cameras.main;
+    if (out) cam.fadeOut(ms, 5, 5, 5);
+    else cam.fadeIn(ms, 5, 5, 5);
+    return this.wait(ms + 50);
+  }
+
+  private startCut(): void {
+    this.busy = true;
+    this.cutting = true;
+    UI.setPrompt(null);
+  }
+
+  private endCut(): void {
+    this.cutting = false;
+    this.busy = false;
+    this.refreshQuest();
+  }
+
+  /** 序章 : écran d'ouverture, cinématique sur le pays de Yakumo, carton du chapitre, puis le col. */
+  private async prologue(): Promise<void> {
+    this.startCut();
+    await UI.pressStart();
+    await this.say('pro:cine1', 'pro:cine2');
+    await UI.chapterCard('第一章', '霧の村', 'Chapitre premier · Le village de la brume');
+    const save = world();
+    save.flags.prologue = true;
+    saveWorld();
+    UI.placeCard(this.def.name, this.def.fr, '峠');
+    if (!save.hints) {
+      UI.hint('<kbd>ZQSD</kbd> ou <kbd>↑←↓→</kbd> marcher · <kbd>Maj</kbd> courir · <kbd>Espace</kbd> lire, parler<br><kbd>Échap</kbd> メニュー · <kbd>M</kbd> son', 14000);
+      save.hints = true;
+      saveWorld();
+    }
+    this.endCut();
+  }
+
+  /** Ce qui se déclenche en marchant : la voix dans la borne du col, la brume qui barre la descente. */
+  private storyTriggers(): void {
+    if (this.busy || UI.dialogOpen() || UI.panelOpen()) return;
+    const save = world();
+    if (this.def.id === 'pass' && !save.flags.wake) {
+      const post = this.built.readables.find((r) => r.id === 'post');
+      const [px, py] = post?.cells[0] ?? [0, 0];
+      if (!save.seen['pro:call'] && Math.hypot(this.player.x / TILE - px - 0.5, this.player.y / TILE - py - 0.5) < 7) {
+        save.seen['pro:call'] = true;
+        saveWorld();
+        this.busy = true;
+        UI.openDialog('pro:call', () => (this.busy = false));
+        return;
+      }
+    }
+    for (const b of this.def.barriers ?? []) {
+      if (save.flags[b.flag]) continue;
+      const near = b.cells.some(([x, y]) => Math.hypot(this.player.x / TILE - x - 0.5, this.player.y / TILE - 0.3 - y - 0.5) < 1.3);
+      if (near && this.time.now - this.fogSaidAt > 9000) {
+        this.fogSaidAt = this.time.now;
+        this.busy = true;
+        UI.openDialog(b.say, () => (this.busy = false));
+      }
+    }
+  }
+
+  /** La phrase de la borne, dite en entier : ワケ sort de la pierre. */
+  private async freeWake(): Promise<void> {
+    this.startCut();
+    const post = this.built.readables.find((r) => r.id === 'post')!;
+    const [px, py] = post.cells[0];
+    this.turn('player', faceToward(px * TILE + 8 - this.player.x, py * TILE + 8 - this.player.y));
+    await this.say('pro:post');
+    // La pierre se fend de vermillon, et l'esprit d'encre en sort.
+    const cam = this.cameras.main;
+    cam.flash(500, 212, 65, 43);
+    cam.shake(380, 0.006);
+    if (this.cache.audio.exists('audio/accept')) this.sound.play('audio/accept', { volume: 0.5 });
+    const save = world();
+    save.flags.wake = true;
+    saveWorld();
+    this.wake.setPosition((px + 0.5) * TILE, (py + 0.9) * TILE).setVisible(true).setAlpha(0).setScale(0.4);
+    this.trail = [];
+    this.tweens.add({ targets: this.wake, alpha: 0.88, scale: 1, y: this.wake.y - 10, duration: 1100, ease: 'Back.easeOut' });
+    for (const f of this.barrierFog) this.tweens.add({ targets: f, alpha: 0, scale: 0.8, duration: 2600, onComplete: () => f.destroy() });
+    this.barrierFog = [];
+    await this.wait(1500);
+    await this.say('pro:free');
+    UI.placeCard('ワケ', 'Le traducteur, libéré de la borne', '訳');
+    this.endCut();
+  }
+
+  /** Arrivée au village : おみつ et 萬作 échangent des faits nus, ワケ comprend, puis il fait le tour du village. */
+  private async arrival(fromNorth: boolean): Promise<void> {
+    this.startCut();
+    const home = this.npc('mansaku')?.def;
+    this.place('mansaku', 30.5, 10.6, 'left');
+    await this.wait(900);
+    if (fromNorth) {
+      await this.walk('player', [[23.5, 8.6], [24.5, 10.6]]);
+      this.turn('player', 'right');
+    }
+    this.turn('omitsu', 'left');
+    await this.wait(300);
+    await this.say('arrival');
+    // 萬作 rentre chez lui pendant que ワケ fait le tour.
+    if (home) void this.walk('mansaku', [[25.5, 11], [24.2, 13.6], [12, 13.6], [home.x, home.y]], 34).then(() => this.turn('mansaku', home.face));
+    this.turn('omitsu', 'down');
+    await this.pan(9, 12);
+    await this.say('tour:house');
+    await this.pan(15, 21);
+    await this.say('tour:mill');
+    await this.pan(40, 24.5);
+    await this.say('tour:bridge');
+    await this.pan(39.5, 32.5, 1200);
+    await this.say('tour:hill');
+    await this.follow(1500);
+    await this.say('tour:end');
+    if (home) this.place('mansaku', home.x, home.y, home.face);
+    this.endCut();
+  }
+
+  /** 終章 : 萬作 dit enfin sa phrase sur la tombe, la brume se lève, le village se dispute, la route s'ouvre. */
+  private async epilogue(): Promise<void> {
+    this.startCut();
+    UI.questHud(null);
+    await this.wait(500);
+    await this.fade(true, 900);
+    // Sur la colline, devant la tombe de お露.
+    this.place('mansaku', 41.5, 34, 'down');
+    this.place('player', 39.2, 32.6, 'right');
+    this.wake.setPosition(38.4 * TILE, 32.2 * TILE);
+    const cam = this.cameras.main;
+    cam.stopFollow();
+    cam.centerOn(40.5 * TILE, 33 * TILE);
+    await this.fade(false, 1100);
+    await this.wait(500);
+    await this.say('ep:tomb');
+    // La brume se lève.
+    if (this.cache.audio.exists('audio/accept')) this.sound.play('audio/accept', { volume: 0.4 });
+    for (const f of this.fog) this.tweens.add({ targets: f, alpha: this.def.fog * 0.22 * (f === this.fog[0] ? 1 : 0.8), duration: 5000, ease: 'Sine.easeInOut' });
+    for (const b of this.blobs) this.tweens.add({ targets: b, alpha: 0, scale: b.scale * 1.6, duration: 4200 });
+    this.game.canvas.style.transition = 'filter 5s ease';
+    this.game.canvas.style.filter = 'saturate(0.95) brightness(1) contrast(1.03)';
+    await this.pan(40.5, 29, 4200);
+    await this.say('ep:dawn');
+    // Le lendemain, devant le salon de thé : le village a retrouvé ses avis.
+    await this.fade(true, 700);
+    const save = world();
+    save.flags.ch1 = true;
+    saveWorld();
+    this.place('mansaku', 30.5, 10.6, 'left');
+    this.place('taichi', 28.5, 12.4, 'up');
+    this.place('player', 24.5, 10.6, 'right');
+    this.turn('omitsu', 'right');
+    cam.centerOn(27 * TILE, 10.5 * TILE);
+    await this.fade(false, 900);
+    await this.say('ep:tea');
+    this.turn('mansaku', 'left');
+    this.turn('omitsu', 'left');
+    await this.say('ep:thanks');
+    await this.say('ep:seal');
+    await UI.chapterCard('第一章', '霧の村', 'Fin du premier chapitre', true, 6200);
+    // Chacun rentre chez lui ; le sabreur reprend la main.
+    for (const id of ['mansaku', 'taichi', 'omitsu']) {
+      const n = this.npc(id);
+      if (n) this.place(id, n.def.x, n.def.y, n.def.face);
+    }
+    await this.follow(600);
+    await this.say('ep:end');
+    UI.placeCard('灯籠宿', 'La route du sud est ouverte', '道');
+    this.endCut();
+  }
+
   // ---------- sorties, son, sauvegarde ----------
 
   private checkExit(): void {
@@ -480,11 +764,13 @@ export class VillageScene extends Phaser.Scene {
     const exit = this.def.exits.find((e) => e.side === side);
     save.gate = exit?.gate ?? side;
     save.pos = undefined;
-    save.scene = 'map';
+    // Une sortie peut mener droit à un autre lieu en pixel (le col descend au village).
+    if (exit?.place) save.place = exit.place;
+    save.scene = exit?.place ? 'village' : 'map';
     saveWorld();
     UI.setPrompt(null);
     this.cameras.main.fadeOut(450, 5, 5, 5);
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('map'));
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => (exit?.place ? this.scene.restart() : this.scene.start('map')));
   }
 
   private updateAmbience(): void {

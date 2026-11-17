@@ -12,12 +12,14 @@ export interface Place {
   chapter: string; // numéro de chapitre en kanji
   open: boolean;
   from?: string; // lieu auquel il est rattaché (pour les sites)
+  opensAfter?: string; // drapeau du fil de l'histoire qui ouvre la route (fin du chapitre précédent)
+  soon?: boolean; // route ouverte, mais le chapitre n'est pas encore écrit
 }
 
 export const PLACES: Place[] = [
   { id: 'kirino', name: '霧野村', reading: 'きりのむら', fr: 'Kirino, le village de la brume', x: 250, y: 790, kind: 'village', chapter: '一', open: true },
   { id: 'touge', name: '霧野峠', reading: 'きりのとうげ', fr: 'Le col de Kirino. Les distorsions y rôdent.', x: 120, y: 610, kind: 'site', chapter: '一', open: true, from: 'kirino' },
-  { id: 'tourou', name: '灯籠宿', reading: 'とうろうじゅく', fr: 'Le relais aux lanternes, sur la grand-route', x: 520, y: 700, kind: 'village', chapter: '二', open: false },
+  { id: 'tourou', name: '灯籠宿', reading: 'とうろうじゅく', fr: 'Le relais aux lanternes, sur la grand-route', x: 520, y: 700, kind: 'village', chapter: '二', open: false, opensAfter: 'ch1', soon: true },
   { id: 'shiomi', name: '潮見港', reading: 'しおみみなと', fr: 'Le port de Shiomi, pêcheurs et marchands', x: 390, y: 470, kind: 'village', chapter: '三', open: false },
   { id: 'kaji', name: '鍛冶谷', reading: 'かじだに', fr: 'La vallée des forges', x: 690, y: 520, kind: 'village', chapter: '四', open: false },
   { id: 'chidori', name: '千鳥町', reading: 'ちどりまち', fr: 'La ville du théâtre', x: 930, y: 660, kind: 'village', chapter: '五', open: false },
@@ -31,3 +33,6 @@ export const PLACES: Place[] = [
 export const ROUTE = ['kirino', 'tourou', 'shiomi', 'kaji', 'chidori', 'shirasagi', 'yukidera', 'miyako', 'tou'];
 
 export const placeById = (id: string) => PLACES.find((p) => p.id === id);
+
+/** Un lieu est ouvert d'office, ou quand le chapitre précédent est apaisé. */
+export const isOpen = (p: Place, flags: Record<string, boolean>): boolean => p.open || (!!p.opensAfter && !!flags[p.opensAfter]);

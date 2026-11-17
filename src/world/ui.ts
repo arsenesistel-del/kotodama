@@ -13,11 +13,18 @@ root.innerHTML = `
   <div class="place" hidden><b></b><span class="seal">霧</span><em></em></div>
   <div class="prompt" hidden><kbd>Espace</kbd><span></span></div>
   <div class="hint" hidden></div>
-  <div class="quest" hidden><small>依頼</small><b><ruby></ruby></b><em></em><ul></ul></div>
+  <div class="quests" hidden></div>
   <div class="card" hidden><small class="ch"></small><b></b><span class="rd"></span><p></p><em></em></div>`;
 document.body.appendChild(root);
 
-const $ = <T extends HTMLElement>(s: string) => root.querySelector(s) as T;
+const $ = <T extends HTMLElement>(s: string) => (root.querySelector(s) ?? card.querySelector(s)) as T;
+
+// Le carton de chapitre passe au-dessus de tout, dialogues compris.
+const card = document.createElement('div');
+card.id = 'kcard';
+card.innerHTML = `<div class="chapter" hidden><small></small><b></b><em></em><span class="seal"></span></div>
+  <div class="start" hidden><b>言霊</b><em>KOTODAMA</em><button>はじめる<small>clic ou Espace · Chrome, micro et son allumés</small></button></div>`;
+document.body.appendChild(card);
 
 export function showUi(on: boolean): void {
   root.hidden = !on;
@@ -79,16 +86,66 @@ export function placeInfo(p: { name: string; reading: string; fr: string; chapte
   $('.card em').innerHTML = action;
 }
 
-// ---------- contrat en cours, en haut à gauche ----------
+// ---------- contrats en cours, en haut à gauche ----------
 
-export function questHud(q: { title: string; reading: string; fr: string; rows: { label: string; done: boolean; now: boolean }[] } | null): void {
-  const box = $('.quest');
-  if (!q) {
-    box.hidden = true;
-    return;
-  }
-  box.hidden = false;
-  $('.quest b ruby').innerHTML = `${q.title}<rt>${q.reading}</rt>`;
-  $('.quest em').textContent = q.fr;
-  $('.quest ul').innerHTML = q.rows.map((r) => `<li class="${r.done ? 'done' : ''}${r.now ? ' now' : ''}">${r.label}</li>`).join('');
+type QuestBox = { title: string; reading: string; fr: string; side?: boolean; rows: { label: string; done: boolean; now: boolean }[] };
+
+/** Les contrats en cours : celui de l'histoire en entier, les contrats de révision repliés sur leur étape. */
+export function questHud(list: QuestBox[] | QuestBox | null): void {
+  const box = $('.quests');
+  const qs = !list ? [] : Array.isArray(list) ? list : [list];
+  box.hidden = !qs.length;
+  box.innerHTML = qs
+    .map((q, i) => {
+      const rows = i === 0 ? q.rows : q.rows.filter((r) => r.now);
+      return `<div class="quest${i ? ' small' : ''}"><small>${q.side ? '小依頼' : '依頼'}</small><b><ruby>${q.title}<rt>${q.reading}</rt></ruby></b><em>${q.fr}</em><ul>${rows
+        .map((r) => `<li class="${r.done ? 'done' : ''}${r.now ? ' now' : ''}">${r.label}</li>`)
+        .join('')}</ul></div>`;
+    })
+    .join('');
+}
+
+// ---------- carton de chapitre, plein écran ----------
+
+/** Carton noir avec le titre du chapitre calligraphié à la verticale. `end` : le sceau 了 de fin de chapitre. */
+export function chapterCard(ch: string, title: string, sub: string, end = false, ms = 5200): Promise<void> {
+  const c = $('.chapter');
+  $('.chapter small').textContent = ch;
+  $('.chapter b').textContent = title;
+  $('.chapter em').textContent = sub;
+  $('.chapter .seal').textContent = end ? '了' : '';
+  $('.chapter .seal').hidden = !end;
+  c.hidden = false;
+  c.classList.remove('go');
+  void c.offsetWidth;
+  c.classList.add('go');
+  return new Promise((r) =>
+    window.setTimeout(() => {
+      c.hidden = true;
+      r();
+    }, ms),
+  );
+}
+
+/** Écran d'ouverture d'une nouvelle partie : un clic, qui autorise aussi le son et le micro dans Chrome. */
+export function pressStart(): Promise<void> {
+  const st = card.querySelector('.start') as HTMLElement;
+  st.hidden = false;
+  return new Promise((r) => {
+    const go = (e?: Event) => {
+      if (e instanceof KeyboardEvent && !['Space', 'Enter'].includes(e.code)) return;
+      e?.preventDefault();
+      e?.stopImmediatePropagation();
+      window.removeEventListener('keydown', go, true);
+      st.removeEventListener('click', go);
+      st.classList.add('out');
+      window.setTimeout(() => {
+        st.hidden = true;
+        st.classList.remove('out');
+        r();
+      }, 700);
+    };
+    st.addEventListener('click', go);
+    window.addEventListener('keydown', go, true);
+  });
 }

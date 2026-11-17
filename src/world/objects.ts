@@ -73,6 +73,8 @@ export const OBJ = {
   sign: rect('element', 6, 3, 1, 2, ['.', '#'], 1),
   grave: rect('element', 5, 2, 1, 1, ['#'], 0),
   tomb: rect('element', 4, 2, 1, 1, ['#'], 0),
+  stonePost: rect('element', 5, 2, 1, 1, ['#'], 0), // la borne du col, dont l'inscription s'arrête
+  scarecrow: rect('element', 15, 0, 1, 1, ['#'], 0),
 
   // La roue du moulin : une image animée du pack, laissée immobile (le moulin est à l'arrêt).
   wheel: {
