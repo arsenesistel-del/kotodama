@@ -766,6 +766,8 @@ export function closeAll(): void {
 }
 
 export const openMenu = () => openPanel('menu');
+/** Le panneau セーブ (le salon de thé : se reposer, c'est sauvegarder). */
+export const openSave = () => openSlots('save');
 
 // バックログ
 let logTr = false;

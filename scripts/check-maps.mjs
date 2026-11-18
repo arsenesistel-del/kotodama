@@ -69,6 +69,24 @@ for (const [id, def] of Object.entries(M.MAPS)) {
   for (const e of def.exits) if (e.place && !M.MAPS[e.place]) fail(`${id} : la sortie ${e.side} mène à ${e.place}, qui n'existe pas`);
   for (const e of def.exits) if (e.place && !M.MAPS[e.place].spawns[e.gate]) fail(`${id} : la sortie ${e.side} arrive par « ${e.gate} », absent de ${e.place}`);
 
+  // Portes et intérieurs (session 11) : la porte s'ouvre sur une case qu'on atteint, l'intérieur existe, on en ressort
+  // devant cette même porte ; figurants et rumeurs ont leurs répliques.
+  for (const d of def.doors ?? []) {
+    if (!M.MAPS[d.place]) fail(`${id} : la porte ${d.x},${d.y} mène à ${d.place}, qui n'existe pas`);
+    else if (!M.MAPS[d.place].spawns[d.gate]) fail(`${id} : la porte de ${d.place} arrive par « ${d.gate} », absent`);
+    if (!reach(d.x, d.y + 1)) fail(`${id} : on ne peut pas atteindre la porte de ${d.place}`);
+    if (built.solid[d.y * W + d.x]) fail(`${id} : la porte de ${d.place} est murée`);
+    const back = M.MAPS[d.place]?.exits.find((e) => e.place === id);
+    const sp = back && def.spawns[back.gate];
+    if (!sp) fail(`${id} : on ne ressort pas de ${d.place}`);
+    else if (Math.floor(sp.x) !== d.x || Math.floor(sp.y - 0.2) !== d.y + 1) fail(`${id} : en sortant de ${d.place}, on n'arrive pas devant sa porte`);
+  }
+  for (const c of def.critters ?? []) {
+    if (solid(Math.floor(c.x), Math.floor(c.y - 0.2))) fail(`${id} : ${c.sprite} est dans un mur`);
+    if (c.id && !D.SPEAKERS[c.id]) fail(`${id} : le figurant ${c.id} n'a pas de nom`);
+  }
+  for (const r of def.rumors ?? []) for (const k of r.ids) if (!D.DIALOGUES[k]) fail(`${id} : rumeur ${k} sans répliques`);
+
   let open = 0;
   for (let i = 0; i < W * H; i++) open += seen[i];
   console.log(`${def.name} (${id}) : ${W}×${H}, ${open} cases accessibles, ${def.npcs.length} personnages, ${built.readables.length} choses à lire${tall ? `, ${tall} cases d'herbes hautes` : ''}.`);

@@ -6,6 +6,7 @@ import * as Voice from '../world/voice';
 import * as Progress from '../world/progress';
 import { setBias } from './engine.js';
 import * as Field from '../world/field';
+import * as Hunts from '../world/hunts';
 const $ = s => document.querySelector(s);
 const DEBUG = /debug/.test(location.hash + location.search);
 const SAVE_KEY = 'kotodama.v1', FAST = 3500, MAXHP = 5;
@@ -204,7 +205,7 @@ function encWon() {
     $('#esub').textContent = (crits ? '会心 ×' + crits + ' · ' : '') + (H.php >= H.php0 ? 'sans coup reçu' : 'PV ' + H.php + '/' + H.maxhp);
     $('#elv').textContent = '渡り Lv ' + f.lvl; $('#expn').textContent = '経験 +' + o.xp; $('#exp').style.transform = 'scaleX(' + Math.min(1, f.xp / need) + ')';
     $('#eups').innerHTML = o.ups.length ? '<b>レベルアップ</b> Lv ' + o.ups[o.ups.length - 1] + ' · PV max ' + Field.maxHp(f.lvl) + ' · +' + Field.timeBonus(f.lvl).toFixed(1).replace('.', ',') + ' s pour répondre' : '';
-    $('#eloot').innerHTML = '<b>手に入れた</b> ' + Field.fmtLoot(o.loot) + (o.hard ? '<small>phrase à revoir bien dite : butin plus riche</small>' : '');
+    $('#eloot').innerHTML = '<b>手に入れた</b> ' + Field.fmtLoot(o.loot) + (o.hard ? '<small>phrase à revoir bien dite : butin plus riche</small>' : '') + Hunts.noteFor(E.beast);
     $('#eacq').innerHTML = H.acq.length ? '<b>' + (H.acq.some(id => id.startsWith('s:')) ? '型を覚えた' : '覚えた') + '</b>' + H.acq.map(id => '<span>' + Progress.label(id) + '</span>').join('') : '';
     $('#eok').textContent = '続ける · continuer'; $('#eres').hidden = false; $('#eres').className = 'eres won'; if (o.ups.length) Snd.win(); else Snd.stamp();
   }, 1700);

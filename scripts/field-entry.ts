@@ -2,3 +2,5 @@
 export * as F from '../src/world/field';
 export * as S from '../src/world/state';
 export * as M from '../src/world/maps/index';
+export * as H from '../src/world/hunts';
+export * as D from '../src/world/dialogue';

@@ -22,7 +22,8 @@ function pickWeighted<T>(r: () => number, list: [T, number][]): T {
 
 export interface BuiltMap {
   def: MapDef;
-  grids: { ground: number[][]; detail: number[][]; below: number[][]; above: number[][] };
+  grids: { ground: number[][]; detail: number[][]; below: number[][]; deco: number[][]; above: number[][] };
+  paint: string[][]; // intérieurs : lettre du sol ou du mur peint par le code (« » : rien)
   solid: Uint8Array;
   sprites: { o: ObjDef; x: number; y: number }[];
   readables: { id: string; cells: [number, number][] }[];
@@ -35,13 +36,16 @@ const DIRT_VARIANTS = [gid('floor', 0, 11), gid('floor', 1, 11)];
 const TUFTS = [gid('detail', 0, 2), gid('detail', 1, 2), gid('detail', 2, 2), gid('detail', 3, 2), gid('detail', 6, 2)];
 const FOREST_FILL = [gid('nature', 0, 10), gid('nature', 1, 10), gid('nature', 2, 10)];
 const FLOWERS = [gid('detail', 5, 2)];
+// Lettres des intérieurs, peintes par le code (voir paint.ts).
+export const PAINTED = ['F', 'M', 'E', 'K', 'W', 'X', '_'];
 
 /** Calcule toutes les tuiles et la grille de collision, sans rien dessiner. Testable hors navigateur. */
 export function buildMap(def: MapDef): BuiltMap {
   const { width: W, height: H, terrain: t } = def;
   const r = rng(def.seed);
   const grid = () => Array.from({ length: H }, () => Array<number>(W).fill(0));
-  const ground = grid(), detail = grid(), below = grid(), above = grid();
+  const ground = grid(), detail = grid(), below = grid(), deco = grid(), above = grid();
+  const paint = Array.from({ length: H }, () => Array<string>(W).fill(''));
   const solid = new Uint8Array(W * H);
   const grass = new Uint8Array(W * H);
   const occupied = new Uint8Array(W * H);
@@ -64,6 +68,10 @@ export function buildMap(def: MapDef): BuiltMap {
       } else if (c === 'g') {
         ground[y][x] = GRASS;
         grass[y * W + x] = 1;
+      } else if (PAINTED.includes(c)) {
+        // Intérieur : sol ou mur peint par la scène (paint.ts). Les murs bloquent.
+        paint[y][x] = c;
+        if (c === 'W' || c === 'X' || c === '_') solid[y * W + x] = 1;
       } else if (c === 'T') {
         ground[y][x] = GRASS;
         solid[y * W + x] = 1;
@@ -84,13 +92,13 @@ export function buildMap(def: MapDef): BuiltMap {
         const X = px + x, Y = py + y;
         if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
         const g = o.tile(x, y);
-        if (g) (y < o.above ? above : below)[Y][X] = g;
+        if (g) (y < o.above ? above : o.top ? deco : below)[Y][X] = g;
         const m = o.mask[y]?.[x] ?? '.';
         if (m === '#') {
           solid[Y * W + X] = 1;
           cells.push([X, Y]);
         } else if (m === 'o') solid[Y * W + X] = 0;
-        occupied[Y * W + X] = 1;
+        if (!o.top) occupied[Y * W + X] = 1;
       }
     }
     if (o.sprite) sprites.push({ o, x: px, y: py });
@@ -121,8 +129,11 @@ export function buildMap(def: MapDef): BuiltMap {
     }
   }
 
+  // Les portes s'ouvrent dans le mur de la maison : on marche dessus pour entrer.
+  for (const d of def.doors ?? []) solid[d.y * W + d.x] = 0;
+
   // Un objet posé sur des herbes hautes les remplace.
   for (let i = 0; i < W * H; i++) if (occupied[i]) grass[i] = 0;
-  return { def, grids: { ground, detail, below, above }, solid, sprites, readables, grass };
+  return { def, grids: { ground, detail, below, deco, above }, paint, solid, sprites, readables, grass };
 }
 

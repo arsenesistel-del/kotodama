@@ -1,6 +1,6 @@
 // Les feuilles de tuiles du pack, et la conversion « feuille + colonne + ligne » en numéro de tuile global.
 
-export type SheetName = 'floor' | 'nature' | 'house' | 'water' | 'element' | 'field' | 'detail';
+export type SheetName = 'floor' | 'nature' | 'house' | 'water' | 'element' | 'field' | 'detail' | 'bed' | 'infloor';
 
 export const SHEETS: Record<SheetName, { cols: number; rows: number }> = {
   floor: { cols: 22, rows: 26 },
@@ -10,6 +10,9 @@ export const SHEETS: Record<SheetName, { cols: number; rows: number }> = {
   element: { cols: 16, rows: 15 },
   field: { cols: 5, rows: 15 },
   detail: { cols: 16, rows: 5 },
+  // Session 11 : les intérieurs (futons, sols de bois). Ajoutées à la fin pour ne pas décaler les numéros existants.
+  bed: { cols: 14, rows: 12 },
+  infloor: { cols: 22, rows: 17 },
 };
 
 export const SHEET_ORDER = Object.keys(SHEETS) as SheetName[];

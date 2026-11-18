@@ -3,7 +3,7 @@
 import './ui.css';
 import * as VN from './vn';
 
-export { advance, dialogOpen, openChain, openDialog, openMenu, panelOpen, toggleTranslation, toast } from './vn';
+export { advance, dialogOpen, openChain, openDialog, openMenu, openSave, panelOpen, toggleTranslation, toast } from './vn';
 export { plain } from './text';
 
 const root = document.createElement('div');
@@ -93,7 +93,7 @@ export function placeInfo(p: { name: string; reading: string; fr: string; chapte
 
 // ---------- contrats en cours, en haut à gauche ----------
 
-type QuestBox = { title: string; reading: string; fr: string; side?: boolean; rows: { label: string; done: boolean; now: boolean }[] };
+type QuestBox = { title: string; reading: string; fr: string; side?: boolean; kind?: string; rows: { label: string; done: boolean; now: boolean }[] };
 
 /** Les contrats en cours : celui de l'histoire en entier, les contrats de révision repliés sur leur étape. */
 export function questHud(list: QuestBox[] | QuestBox | null): void {
@@ -103,7 +103,7 @@ export function questHud(list: QuestBox[] | QuestBox | null): void {
   box.innerHTML = qs
     .map((q, i) => {
       const rows = i === 0 ? q.rows : q.rows.filter((r) => r.now);
-      return `<div class="quest${i ? ' small' : ''}"><small>${q.side ? '小依頼' : '依頼'}</small><b><ruby>${q.title}<rt>${q.reading}</rt></ruby></b><em>${q.fr}</em><ul>${rows
+      return `<div class="quest${i ? ' small' : ''}"><small>${q.kind ?? (q.side ? '小依頼' : '依頼')}</small><b><ruby>${q.title}<rt>${q.reading}</rt></ruby></b><em>${q.fr}</em><ul>${rows
         .map((r) => `<li class="${r.done ? 'done' : ''}${r.now ? ' now' : ''}">${r.label}</li>`)
         .join('')}</ul></div>`;
     })

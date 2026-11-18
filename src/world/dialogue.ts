@@ -11,6 +11,7 @@
 
 import { QUEST_DIALOGUES, QUEST_SPEAKERS } from './quest-lines';
 import { STORY_DIALOGUES, STORY_SPEAKERS } from './story-lines';
+import { VILLAGE_DIALOGUES, VILLAGE_SPEAKERS } from './village-lines';
 
 export interface Choice {
   jp: string;
@@ -37,6 +38,7 @@ export const SPEAKERS: Record<string, { name: string; face?: string }> = {
   sign: { name: '' },
   ...QUEST_SPEAKERS,
   ...STORY_SPEAKERS,
+  ...VILLAGE_SPEAKERS,
 };
 
 export const DIALOGUES: Record<string, Line[]> = {
@@ -125,7 +127,6 @@ export const DIALOGUES: Record<string, Line[]> = {
     { who: 'wake', fr: 'Touche X pour le faire tinter ou le ranger (ou メニュー → 持ち物). Range-le quand tu veux t’entraîner : chaque bête, c’est une phrase de plus.' },
   ],
   'susuki:bell:again': [{ who: 'wake', fr: 'La corde du 地蔵 est vide. Le 鈴, c’est toi qui l’as : touche X.' }],
-  'down:wake': [{ who: 'wake', fr: 'Tu tenais à peine debout. Je t’ai ramené chez おみつ. Au village, on reprend des forces.' }],
   'sign-bridge': [
     { who: 'sign', jp: '{吊|つ}り{橋|ばし}　{一人|ひとり}ずつ{渡|わた}ること', fr: 'Pont suspendu. Traverser un par un.' },
     { who: 'wake', fr: 'Il grince. Je ne monte pas dessus, moi. Enfin, je flotte, mais quand même.' },
@@ -136,4 +137,5 @@ export const DIALOGUES: Record<string, Line[]> = {
   ],
   ...QUEST_DIALOGUES,
   ...STORY_DIALOGUES,
+  ...VILLAGE_DIALOGUES,
 };
