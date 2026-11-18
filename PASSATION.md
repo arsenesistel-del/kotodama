@@ -57,7 +57,7 @@ Pour suivre : `KDW.craft()` (ce que proposent おみつ et 萬作, ce qu'on peut
 
 ### Session 11 : le village
 
-Branche `session-11-village`, PR #9 : https://github.com/arsenesistel-del/kotodama/pull/9 (à fusionner). La PR #8 (session 10) était déjà fusionnée au début de la session.
+Branche `session-11-village`, PR #9 : https://github.com/arsenesistel-del/kotodama/pull/9, fusionnée dans `main` et en ligne (18 novembre). La PR #8 (session 10) était déjà fusionnée au début de la session.
 
 - **Intérieurs** (`src/world/maps/interiors.ts`) : on entre en marchant sur la porte (`doors` de la carte), on ressort par le bas, devant la même porte. La pièce entière est cadrée au centre de l'écran, un peu haute pour laisser la place au dialogue.
   - **茶屋** (`chaya`) : fourneau et comptoir, おみつ derrière (elle vit là maintenant ; dans les cinématiques d'arrivée et d'épilogue, elle sort le temps de la scène, `cameo`), bancs rouges, menu au mur, étagère des dieux, pièce du fond en tatami avec un futon. Sans contrat ni demande, elle prend la commande (`chaya:menu`), à voix haute : 「お茶をください」 ou 「お団子をください」 rendent tous les PV, 「少し休ませてください」 rend les PV et ouvre la セーブ. Elle prend aussi la commande quand un de ses contrats ou une de ses demandes est en cours (après le rappel). **Les PV ne reviennent plus en entrant au village** : il faut passer au salon de thé. À bout de forces, on se réveille sur le futon (`down:wake`).
