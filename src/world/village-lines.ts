@@ -4,6 +4,7 @@
 // そうだ, んだ) sauf dans les variantes « :ep » (après l'épilogue, voir VILLAGE_HEALED). Le joueur, lui, les a toutes.
 // Les quêtes de chasse : `hN:give` (la demande ; la réplique `key` de HUNTS dit quoi, où, combien), `hN:wait`, `hN:done`.
 import type { Line } from './dialogue';
+import { ALL_ORDERS } from './craft';
 
 export const VILLAGE_SPEAKERS: Record<string, { name: string; face?: string }> = {
   oharu: { name: 'おはる', face: 'actors/woman_face' },
@@ -80,18 +81,41 @@ export const VILLAGE_DIALOGUES: Record<string, Line[]> = {
   // ================= le salon de thé =================
   // Sans contrat ni demande, おみつ prend la commande. Ce qu'on dit à voix haute décide : le thé et les dango
   // rendent les forces, se reposer dans la pièce du fond ouvre la セーブ.
-  'chaya:menu': [
-    { who: 'omitsu', jp: 'いらっしゃい。……{何|なに}にする？', fr: 'Bienvenue. … Qu’est-ce que tu prends ?' },
-    {
-      who: 'player',
-      fr: 'Dis ce que tu veux : un thé ou des dango (ils rendent tes forces), ou te reposer (sauvegarder).',
-      choices: [
-        { jp: 'お{茶|ちゃ}をください。', fr: 'Un thé, s’il vous plaît.', goto: 'omitsu:tea', act: 'heal' },
-        { jp: 'お{団子|だんご}をください。', fr: 'Des dango, s’il vous plaît.', goto: 'omitsu:dango', act: 'heal' },
-        { jp: '{少|すこ}し{休|やす}ませてください。', fr: 'Laissez-moi me reposer un peu.', goto: 'chaya:rest', act: 'rest' },
-      ],
-    },
+  'chaya:menu': [{ who: 'omitsu', jp: 'いらっしゃい。……{何|なに}にする？', fr: 'Bienvenue. … Qu’est-ce que tu prends ?' }],
+  // Session 12 : la commande du joueur est tirée de craft.ts (`pick`) : le thé, les dango qu'on peut payer, le repos.
+  'omitsu:make:mitarashi': [{ who: 'omitsu', jp: 'みたらし、ひとつね。……はい、どうぞ。', fr: 'Une mitarashi, d’accord. … Tiens, voilà.' }],
+  'omitsu:make:sanshoku': [{ who: 'omitsu', jp: '{三色|さんしょく}{団子|だんご}。……{母|かあ}さんの{味|あじ}よ。', fr: 'Des dango tricolores. … Le goût de maman.' }],
+  'omitsu:more': [{ who: 'omitsu', jp: 'ほかには？', fr: 'Autre chose ?' }],
+  'omitsu:bye': [{ who: 'omitsu', jp: 'また{来|き}てね。', fr: 'Reviens quand tu veux.' }],
+  // Après le col, おみつ se souvient des dango tricolores de sa mère : la deuxième recette.
+  'omitsu:sanshoku': [
+    { who: 'omitsu', jp: 'あのね。{母|かあ}さんの{三色|さんしょく}{団子|だんご}、{作|つく}り{方|かた}を{思|おも}い{出|だ}したの。', fr: 'Dis. Les dango tricolores de maman, je me suis souvenue de la recette.' },
+    { who: 'omitsu', jp: 'お{米|こめ}が{四|よっ}つあれば、{包|つつ}むわ。', fr: 'Si tu as quatre mesures de riz, je t’en emballe.' },
+    { who: 'wake', fr: 'Les みたらし rendent trois PV, les 三色 rendent tout. On les mange dans les herbes : touche C, ou le bouton 団子 de l’encart.' },
   ],
+  // La première commande à emporter : ワケ explique.
+  'chaya:dango': [{ who: 'wake', fr: 'Des dango à emporter : dans les herbes, touche C (ou le bouton 団子 de l’encart) pour en manger un. Les みたらし coûtent deux mesures de riz.' }],
+
+  // ================= l'atelier de 萬作 (session 12) =================
+  // Après le moulin, 萬作 se remet à l'ouvrage : pièces du sabre (une fois pour toutes) et 札 (chacun sert une fois).
+  'craft:intro': [
+    { who: 'mansaku', jp: 'お{前|まえ}さん、その{刀|かたな}。{柄|つか}の{糸|いと}が、ほつれておる。', fr: 'Toi, ton sabre. Le fil du manche s’effiloche.' },
+    { who: 'mansaku', jp: '{材料|ざいりょう}を{持|も}ってくれば、わしが{直|なお}す。お{守|まも}りも{作|つく}れる。', fr: 'Apporte-moi des matériaux, et je le répare. Je sais faire des amulettes, aussi.' },
+    { who: 'player', jp: 'ありがとうございます。お{願|ねが}いします。', fr: 'Merci beaucoup. Je compte sur vous.' },
+    { who: 'wake', fr: 'Il se remet au travail, on dirait. Ce qu’il sait faire et ce qu’il lui faut : メニュー → 持ち物. Quand tu as de quoi payer, parle-lui et commande à voix haute.' },
+  ],
+  'mansaku:craft': [{ who: 'mansaku', jp: '{何|なに}を{作|つく}る？', fr: 'Qu’est-ce que je te fabrique ?' }],
+  'mansaku:more': [{ who: 'mansaku', jp: 'ほかに、{何|なに}か{作|つく}るか？', fr: 'Je te fais autre chose ?' }],
+  'mansaku:bye': [{ who: 'mansaku', jp: '……うむ。', fr: '… Hm.' }],
+  'mansaku:make:tsukamaki': [{ who: 'mansaku', jp: '{糸|いと}を{巻|ま}きなおした。……{握|にぎ}ってみい。', fr: 'J’ai refait le fil du manche. … Essaie, tiens-le.' }],
+  'mansaku:make:mamori': [{ who: 'mansaku', jp: 'お{守|まも}りじゃ。{一度|いちど}だけ、お{前|まえ}さんを{守|まも}る。', fr: 'Une amulette. Elle te protégera une fois.' }],
+  'mansaku:make:tsuka': [{ who: 'mansaku', jp: '{新|あたら}しい{柄|つか}じゃ。{軽|かる}いぞ。', fr: 'Un manche neuf. Il est léger.' }],
+  'mansaku:make:tsuba': [{ who: 'mansaku', jp: '{鍔|つば}じゃ。{古|ふる}い{鉄|てつ}じゃが、{丈夫|じょうぶ}じゃ。', fr: 'Une garde. Du vieux fer, mais solide.' }],
+  'mansaku:make:yobi': [{ who: 'mansaku', jp: '{赤|あか}い{札|ふだ}じゃ。{朱|しゅ}の{言蟲|ことむし}が、{寄|よ}ってくる。', fr: 'Le talisman rouge. Les kotomushi vermillon viennent à lui.' }],
+  'mansaku:make:saya': [{ who: 'mansaku', jp: '{鞘|さや}じゃ。……{久|ひさ}しぶりに、いい{仕事|しごと}をした。', fr: 'Un fourreau. … Ça faisait longtemps que je n’avais pas fait du bon travail.' }],
+  // Pour `npm test` seulement : toutes les phrases de commande (lectures, lexique, phrases acceptées).
+  'craft:orders': [ALL_ORDERS],
+
   'chaya:rest': [{ who: 'omitsu', jp: '{奥|おく}の{座敷|ざしき}、{使|つか}って。{静|しず}かよ。', fr: 'Prends la pièce du fond. C’est calme.' }],
   'chaya:wake': [{ who: 'wake', fr: 'Rien de tel qu’un thé brûlant. Tes forces sont revenues.' }],
   'down:wake': [{ who: 'wake', fr: 'Tu tenais à peine debout. Je t’ai ramené chez おみつ. Elle t’a laissé dormir dans la pièce du fond.' }],

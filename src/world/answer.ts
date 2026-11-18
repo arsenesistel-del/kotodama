@@ -18,6 +18,13 @@ const SPELL: [RegExp, string][] = [
   [/美味しい/g, 'おいしい'],
   [/怖/g, 'こわ'],
   [/宜しく/g, 'よろしく'],
+  // Session 12 : les commandes chez おみつ et 萬作 (つばをつける, さんしょく, みたらし…).
+  [/唾/g, '鍔'],
+  [/莢/g, '鞘'],
+  [/赤い(?:蓋|ふた)/g, '赤い札'],
+  [/握り易/g, '握りやす'],
+  [/三食/g, '三色'],
+  [/御手洗/g, 'みたらし'],
 ];
 
 /** Texte entendu, nettoyé : ponctuation et espaces ôtés, katakana en hiragana, écritures courantes unifiées. */

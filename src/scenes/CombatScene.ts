@@ -56,7 +56,7 @@ export class CombatScene extends Phaser.Scene {
     if (this.beast) return game.huntBeast(this.beast);
     const q = questById(this.quest);
     const st = q && stateOf(q);
-    if (q && st) game.huntContract(q.stage, { bonus: !!st.right, final: finalLine(q), back: `Retourne voir ${NAMES[q.giver]} au village.` });
+    if (q && st) game.huntContract(q.stage, { bonus: !!st.right, final: finalLine(q), rec: q.rec, back: `Retourne voir ${NAMES[q.giver]} au village.` });
     else {
       // Rien à chasser (ancienne sauvegarde ouverte sur le repaire) : retour au village.
       world().scene = 'village';

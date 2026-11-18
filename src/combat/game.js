@@ -7,6 +7,8 @@ import * as Progress from '../world/progress';
 import { setBias } from './engine.js';
 import * as Field from '../world/field';
 import * as Hunts from '../world/hunts';
+import * as Craft from '../world/craft';
+import { playTick } from '../world/state';
 const $ = s => document.querySelector(s);
 const DEBUG = /debug/.test(location.hash + location.search);
 const SAVE_KEY = 'kotodama.v1', FAST = 3500, MAXHP = 5;
@@ -18,7 +20,7 @@ const today = () => new Date().toLocaleDateString('sv-SE');
 function micUi() { const el = $('#mic'); if (!el) return; el.textContent = Mic.denied ? 'micro refusé' : Mic.live ? 'micro ouvert' : DEBUG ? 'mode texte' : 'micro coupé'; el.className = Mic.live ? 'on' : 'off'; }
 
 /* ---------- chasse ---------- */
-const H = { stage: null, mhp: 0, php: MAXHP, maxhp: MAXHP, php0: MAXHP, tb: 0, hard: 0, item: null, phase: 'idle', combo: 0, best: 0, log: [], t0: 0, tFirst: null, heard: '', deadline: 0, dur: 0, lastSpeech: 0, tries: 0, timers: [], voids: 0, stance: 0, stag: false, raged: false, kind: 'kiri', recent: [], acq: [] };
+const H = { stage: null, mhp: 0, php: MAXHP, maxhp: MAXHP, php0: MAXHP, tb: 0, crit: FAST, guard: false, hard: 0, item: null, phase: 'idle', combo: 0, best: 0, log: [], t0: 0, tFirst: null, heard: '', deadline: 0, dur: 0, lastSpeech: 0, tries: 0, timers: [], voids: 0, stance: 0, stag: false, raged: false, kind: 'kiri', recent: [], acq: [] };
 const later = (f, ms) => { const t = setTimeout(f, ms); H.timers.push(t); return t; };
 function clearTimers() { H.timers.forEach(clearTimeout); H.timers = []; }
 function show(id) { for (const s of ['hunt', 'result']) $('#' + s).hidden = s !== id; S.hunt = id === 'hunt'; S.title = false; }
@@ -49,11 +51,13 @@ function sayAloud(text, done) {
 }
 
 function startHunt(stage) {
-  const f = Field.field(), mx = Field.maxHp(f.lvl), php = E ? Math.max(1, Math.min(mx, f.hp || mx)) : mx;
-  clearTimers(); Object.assign(H, { stage, mhp: stage.hp, php, maxhp: mx, php0: php, tb: Field.timeBonus(f.lvl), hard: 0, item: null, phase: 'intro', combo: 0, best: 0, log: [], voids: 0, started: Date.now(), stance: 0, stag: false, raged: false, kind: 'kiri', recent: [], acq: [] });
+  // Le 渡り : PV, temps de réponse et seuil du coup critique tiennent compte de son niveau et des pièces du sabre (萬作).
+  // Contre une distorsion, un 守り札 pare le premier coup reçu.
+  const f = Field.field(), mx = Field.hpMax(), php = E ? Math.max(1, Math.min(mx, f.hp || mx)) : mx;
+  clearTimers(); Object.assign(H, { stage, mhp: stage.hp, php, maxhp: mx, php0: php, tb: Field.timeNow(), crit: FAST + Field.critBonus(), guard: !E && (f.items.mamori ?? 0) > 0, hard: 0, item: null, phase: 'intro', combo: 0, best: 0, log: [], voids: 0, started: Date.now(), stance: 0, stag: false, raged: false, kind: 'kiri', recent: [], acq: [] });
   Scene.setMonster(stage); show('hunt'); hud(); $('#readhint').hidden = true; $('#hunt').classList.add('cine');
   $('#cue').innerHTML = ''; $('#cue').hidden = true; $('#heard').textContent = ''; $('#fb').className = 'fb'; $('#fb').innerHTML = ''; $('#fb').hidden = true; $('#acts').hidden = true; $('#tbar').style.transform = 'scaleX(0)';
-  const b = $('#banner'); b.innerHTML = '<b>' + stage.name + '</b><div class="sub"><span>' + stage.fr + '</span><em>' + stage.hint + '</em>' + (C && C.bonus ? '<em class="edge">刃 · ta lame porte la bonne fin : dégâts ×1,5, 崩 plus rapide</em>' : '') + (E && E.beast.rare ? '<em class="edge">朱 · variante rare : plus forte, plus de butin</em>' : '') + '</div>'; b.className = 'banner in' + (E ? ' small' : '');
+  const b = $('#banner'); b.innerHTML = '<b>' + stage.name + '</b><div class="sub"><span>' + stage.fr + '</span><em>' + stage.hint + '</em>' + (C && C.bonus ? '<em class="edge">刃 · ta lame porte la bonne fin : dégâts ×1,5, 崩 plus rapide</em>' : '') + (E && E.beast.rare ? '<em class="edge">朱 · variante rare : plus forte, plus de butin</em>' : '') + (C && C.rec ? '<em class="' + (f.lvl < C.rec ? 'edge' : '') + '">推奨 Lv ' + C.rec + ' · ton 渡り : Lv ' + f.lvl + (f.lvl < C.rec ? ', ce sera plus dur' : '') + '</em>' : '') + (H.guard ? '<em>守り札 · le premier coup reçu sera paré</em>' : '') + '</div>'; b.className = 'banner in' + (E ? ' small' : '');
   $('#quit').textContent = E ? '逃げる · fuir' : 'Quitter'; $('#eres').hidden = true; $('.cmd').classList.remove('gone');
   later(() => Snd.drum(), 500); if (!E) later(() => Snd.drum(), 1250);
   later(() => { b.className = 'banner'; $('#hunt').classList.remove('cine'); later(nextExchange, 450); }, E ? 1700 : 2700);
@@ -70,12 +74,16 @@ const KINDS = { kiri: '斬', harae: '祓', ougi: '奥義', listen: '聞' };
 function present() {
   const it = H.item = pick(), c = it.cue, idx = H.stage.lvl ?? STAGES.indexOf(H.stage), pH = 0.18 + idx * 0.03 + (H.raged ? 0.15 : 0), en = H.stage.enc;
   it.hard = isHard(it.key);
-  H.kind = H.stag ? 'ougi' : it.broken && (!en || en.broken) && Math.random() < pH ? 'harae' : en && en.listen && canListen() && Math.random() < 0.35 ? 'listen' : 'kiri';
+  // Session 12 : les phrases déformées (祓) et les phrases seulement entendues suivent le tableau des niveaux, pour les
+  // bêtes (`enc`) comme pour les boss (`broken`, `listen` dans CONTRACT_STAGES).
+  const brk = en ? en.broken : !!H.stage.broken, lis = en ? en.listen : !!H.stage.listen;
+  H.kind = H.stag ? 'ougi' : it.broken && brk && Math.random() < pH ? 'harae' : lis && canListen() && Math.random() < (en ? 0.35 : 0.2) ? 'listen' : 'kiri';
   H.dur = (H.stage.timer + H.tb) * 1000 * (H.raged ? 0.85 : 1) * (H.kind === 'ougi' ? 1.2 : 1);
   let html = '<span class="kind">' + KINDS[H.kind] + '</span>';
   const ca = aidCls(c.a), cb = aidCls(c.b);
   if (H.kind === 'listen') html += '<div class="ear">♪ ・・・</div><div class="note">Écoute, puis redis la phrase. Clic : réécouter.</div>';
-  else if (en && en.show === 'full' && H.kind === 'kiri') html += '<div class="full">' + rb(c.a, c.ar, ca) + 'は' + rb(it.pk, it.pr, cb) + rb(it.fk, it.fr) + '</div><div class="note">Lis la phrase à voix haute.</div>';
+  // Niveau Lire (1 à 3) : la phrase entière, même sur le 奥義 d'une variante 朱.
+  else if (en && en.show === 'full' && (H.kind === 'kiri' || H.kind === 'ougi')) html += '<div class="full">' + rb(c.a, c.ar, ca) + 'は' + rb(it.pk, it.pr, cb) + rb(it.fk, it.fr) + '</div><div class="note">' + (H.kind === 'ougi' ? 'Elle vacille. Lis la phrase : dégâts doublés.' : 'Lis la phrase à voix haute.') + '</div>';
   else if (H.kind === 'harae') { const b = it.broken; html += '<div class="broken">' + rb(b.a, b.ar, ca) + 'は' + rb(b.w, b.wr, cb) + b.tail + rb(b.fk, b.fr) + '</div><div class="note">Phrase déformée. Redis-la juste.</div>'; }
   else html += '<div class="pair"><span>' + rb(c.a, c.ar, ca) + '</span><i>／</i><span>' + rb(c.b, c.br, cb) + '</span></div><div class="chips">' + (c.form ? '<em class="form">' + c.form + '</em>' : '') + '<em>' + c.frame + '</em></div>' + (H.kind === 'ougi' ? '<div class="note">Elle vacille. Dégâts triplés.</div>' : '');
   $('#cue').innerHTML = html;
@@ -120,11 +128,12 @@ function record(ok, t) {
   for (const id of got) if (!H.acq.includes(id)) H.acq.push(id);
 }
 function success() {
-  clearTimers(); Mic.disarm(); Scene.clearTele(); const now = performance.now(), start = H.tFirst, total = now - H.t0, crit = start <= FAST, ougi = H.kind === 'ougi', harae = H.kind === 'harae';
+  clearTimers(); Mic.disarm(); Scene.clearTele(); const now = performance.now(), start = H.tFirst, total = now - H.t0, crit = start <= H.crit, ougi = H.kind === 'ougi', harae = H.kind === 'harae';
   H.combo++; H.best = Math.max(H.best, H.combo);
   const edge = C && C.bonus ? 1.5 : 1, en = H.stage.enc; // déduction juste : la lame porte la bonne fin
   // Rencontre : chaque phrase juste compte pour une (deux sur un 奥義), pour qu'un combat dure 2 à 4 phrases.
-  const dmg = en ? 10 * (ougi ? 2 : 1) : 7 * edge * (crit ? 2 : 1) * (ougi ? 3 : 1) * (total > 9000 ? 0.7 : 1) * (1 + Math.min(H.combo - 1, 5) * 0.05);
+  // Contre une distorsion, le fourreau de 萬作 (鞘) ajoute 20 %.
+  const dmg = en ? 10 * (ougi ? 2 : 1) : 7 * edge * Field.bossDmg() * (crit ? 2 : 1) * (ougi ? 3 : 1) * (total > 9000 ? 0.7 : 1) * (1 + Math.min(H.combo - 1, 5) * 0.05);
   if (H.item.hard) H.hard++;
   record(true, start); H.log.push({ ok: true, crit, t: start, canon: H.item.canon, key: H.item.key, read: !!H.item.read, kind: H.kind });
   H.mhp -= dmg; H.phase = 'fb';
@@ -149,9 +158,10 @@ function fail(why) {
     $('#fb').innerHTML = '<u>' + (diag ? diag + ' ' : '') + 'L\'ouverture se referme.</u><b>' + it.canon + '</b><span>' + it.kana + '</span>';
     return later(nextExchange, 2300);
   }
-  H.php--; H.stance = Math.max(0, H.stance - 25); Scene.monsterAttack(); hud(); H.phase = 'hit';
+  const parried = H.guard && Craft.useMamori(); if (parried) { H.guard = false; flashBanner('守', 'gold', 900); }
+  if (!parried) H.php--; H.stance = Math.max(0, H.stance - 25); Scene.monsterAttack(); hud(); H.phase = 'hit';
   $('#php').classList.add('hit'); setTimeout(() => $('#php').classList.remove('hit'), 400);
-  $('#fb').innerHTML = (diag ? '<u>' + diag + '</u>' : '') + '<b>' + it.canon + '</b><span>' + it.kana + '</span>' + (H.php > 0 ? '<p>Redis la phrase juste pour reprendre l\'initiative.</p>' : '');
+  $('#fb').innerHTML = (diag ? '<u>' + diag + '</u>' : '') + '<b>' + it.canon + '</b><span>' + it.kana + '</span>' + (parried ? '<p>Le 守り札 s’est brisé à ta place.</p>' : '') + (H.php > 0 ? '<p>Redis la phrase juste pour reprendre l\'initiative.</p>' : '');
   if (H.php <= 0) return later(defeat, 1700);
   later(() => { H.phase = 'riposte'; H.tries = 0; H.heard = ''; $('#heard').textContent = ''; $('#acts').hidden = false; $('#void').hidden = !heard; Mic.arm(onSpeech); }, 900);
 }
@@ -174,7 +184,7 @@ function victory() {
   const fid = H.stage.art || H.stage.id, gain = FRAG[rank] + (C && C.bonus ? 1 : 0); H.gain = gain; H.won = true; H.rank = rank;
   if (E) return encWon();
   save.frags[fid] = (save.frags[fid] || 0) + gain; persist(); Progress.logHunt(true);
-  H.xp = C ? (H.stage.boss ? Field.XP_BOSS : Field.XP_CONTRACT) : 0; H.ups = H.xp ? Field.gainXp(H.xp) : [];
+  H.xp = C ? Field.storyXp(H.stage.boss ? 'boss' : 'contract') : 0; H.ups = H.xp ? Field.gainXp(H.xp) : [];
   if (!C) return later(() => go(() => result(true, rank, first)), 2700);
   // Contrat : apaisée, la créature dit enfin sa phrase entière, avec la voix de celui qui l'avait laissée en suspens.
   later(() => {
@@ -202,9 +212,9 @@ function encWon() {
   later(() => {
     $('.cmd').classList.add('gone');
     $('#etitle').innerHTML = H.stage.name + '<small>鎮まった</small>';
-    $('#esub').textContent = (crits ? '会心 ×' + crits + ' · ' : '') + (H.php >= H.php0 ? 'sans coup reçu' : 'PV ' + H.php + '/' + H.maxhp);
-    $('#elv').textContent = '渡り Lv ' + f.lvl; $('#expn').textContent = '経験 +' + o.xp; $('#exp').style.transform = 'scaleX(' + Math.min(1, f.xp / need) + ')';
-    $('#eups').innerHTML = o.ups.length ? '<b>レベルアップ</b> Lv ' + o.ups[o.ups.length - 1] + ' · PV max ' + Field.maxHp(f.lvl) + ' · +' + Field.timeBonus(f.lvl).toFixed(1).replace('.', ',') + ' s pour répondre' : '';
+    $('#esub').textContent = (crits ? '会心 ×' + crits + ' · ' : '') + (H.php >= H.php0 ? 'sans coup reçu' + (o.chain > 1 ? ' · ' + o.chain + ' de suite' : '') : 'PV ' + H.php + '/' + H.maxhp) + (f.lure > 0 ? ' · 呼び札 encore ' + f.lure : '');
+    $('#elv').textContent = '渡り Lv ' + f.lvl; $('#expn').textContent = '経験 +' + o.xp + (o.chain > 1 ? ' (連鎖 ×' + (1 + 0.1 * Math.min(o.chain - 1, 5)).toFixed(1).replace('.', ',') + ')' : ''); $('#exp').style.transform = 'scaleX(' + Math.min(1, f.xp / need) + ')';
+    $('#eups').innerHTML = o.ups.length ? '<b>レベルアップ</b> Lv ' + o.ups[o.ups.length - 1] + ' · PV max ' + Field.hpMax() + ' · +' + Field.timeNow().toFixed(1).replace('.', ',') + ' s pour répondre' : '';
     $('#eloot').innerHTML = '<b>手に入れた</b> ' + Field.fmtLoot(o.loot) + (o.hard ? '<small>phrase à revoir bien dite : butin plus riche</small>' : '') + Hunts.noteFor(E.beast);
     $('#eacq').innerHTML = H.acq.length ? '<b>' + (H.acq.some(id => id.startsWith('s:')) ? '型を覚えた' : '覚えた') + '</b>' + H.acq.map(id => '<span>' + Progress.label(id) + '</span>').join('') : '';
     $('#eok').textContent = '続ける · continuer'; $('#eres').hidden = false; $('#eres').className = 'eres won'; if (o.ups.length) Snd.win(); else Snd.stamp();
@@ -257,7 +267,7 @@ $('#cue').addEventListener('click', () => { if (H.kind === 'listen' && H.phase =
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => { if (document.hidden) hiddenAt = performance.now(); else if (hiddenAt) { const d = performance.now() - hiddenAt; H.deadline += d; H.t0 += d; if (S.tele) S.tele.start += d; hiddenAt = 0; } });
 if (DEBUG) { const d = $('#dbg'); d.hidden = false; d.addEventListener('keydown', e => { if (e.key === 'Enter') { Mic.inject(d.value); d.value = ''; } e.stopPropagation(); }); }
-window.KD = { H, Mic, S, save: () => save, eres: () => !$('#eres').hidden, cont: encDone, say: t => Mic.inject(t), answer: () => Mic.inject(H.item.canon), wrong: () => Mic.inject(H.item.broken.text) };
+window.KD = { H, Mic, S, C: () => C, save: () => save, eres: () => !$('#eres').hidden, cont: encDone, say: t => Mic.inject(t), answer: () => Mic.inject(H.item.canon), wrong: () => Mic.inject(H.item.broken.text) };
 
 load(); if (!save.frags) save.frags = {};
 // Reprise des anciennes chasses dans le suivi caché (une fois), puis le choix des phrases selon l'échéance.
@@ -267,4 +277,5 @@ setBias({
   entry: (e, type) => { let w = 1; for (const word of [e[0][0], type === 'ia' ? e[1][0] + 'い' : e[1][0]]) { const id = Progress.huntWordId(word), c = Progress.card(id); if (c && c.l > 0) w += (Progress.aid(id) === 'off' ? 0 : 2) + (Progress.status(id).due ? 1 : 0); } return w; }
 }); resize(); Mic.listen(micUi); micUi();
 let lastT = performance.now();
-(function loop(now) { const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; Scene.frame(dt); tick(); requestAnimationFrame(loop); })(performance.now());
+// Temps de jeu (session 12) : une rencontre compte dans les herbes, une chasse de contrat contre les distorsions.
+(function loop(now) { const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; Scene.frame(dt); tick(); if (H.phase !== 'idle' && !$('#hunt').hidden) playTick(Math.min(0.25, dt), E ? 'field' : 'boss'); requestAnimationFrame(loop); })(performance.now());

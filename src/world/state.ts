@@ -19,6 +19,15 @@ export interface WorldSave {
   flags: Record<string, boolean>; // le fil du chapitre : prologue vu, ワケ libéré, épilogue joué (ch1)
   hunts?: Record<string, import('./hunts').HuntState>; // quêtes de chasse des villageois (session 11)
   count?: Record<string, number>; // compteurs du village : 絵馬 déjà lus, おみくじ tirées
+  clock?: Clock; // temps de jeu de cette partie (session 12 : pour régler l'équilibrage sur la vraie partie)
+}
+
+export interface Clock {
+  all: number; // secondes jouées (onglet visible)
+  field: number; // dont dans les herbes hautes, combats compris
+  boss: number; // dont en chasse de contrat
+  steps: Record<string, number>; // par étape de l'histoire (contrat en cours : c1, c2…, puis « fin »)
+  at: string; // étape en cours, posée par la scène du monde
 }
 
 // Une nouvelle partie commence au col, avant le village : c'est là que le prologue libère ワケ.
@@ -60,6 +69,25 @@ export function saveWorld(): void {
   } catch {
     /* navigation privée : on joue sans sauvegarde */
   }
+}
+
+// ---------- temps de jeu ----------
+let unsaved = 0;
+/** Ajoute du temps de jeu (onglet visible seulement). `kind` : où on était. Sauvegardé toutes les quinze secondes. */
+export function playTick(sec: number, kind: 'world' | 'field' | 'boss'): void {
+  if (typeof document !== 'undefined' && document.hidden) return;
+  const c = (world().clock ??= { all: 0, field: 0, boss: 0, steps: {}, at: 'start' });
+  c.all += sec;
+  if (kind === 'field') c.field += sec;
+  if (kind === 'boss') c.boss += sec;
+  c.steps[c.at] = (c.steps[c.at] ?? 0) + sec;
+  if ((unsaved += sec) > 15) {
+    unsaved = 0;
+    saveWorld();
+  }
+}
+export function clockAt(step: string): void {
+  (world().clock ??= { all: 0, field: 0, boss: 0, steps: {}, at: step }).at = step;
 }
 
 /** Remplace la partie en cours (chargement d'un emplacement de sauvegarde). */

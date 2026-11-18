@@ -1,7 +1,7 @@
 // 薄野原 (Susukinohara), la lande aux herbes hautes, à l'est du village. Session 10.
 // Hors du village, les bouts de phrases lâchés sans être finis s'agglutinent en petites bêtes, les 言蟲.
 // On les rencontre au hasard en marchant dans les herbes hautes (« g »). Trois zones, de plus en plus loin du village :
-// l'entrée (niveaux 1 à 3), le milieu de la lande (3 à 6), le fond, autour de l'étang (6 à 10).
+// l'entrée (niveaux 1 à 3), le milieu de la lande (3 à 6), l'étang (6 à 8) et le fond de la lande (8 à 10).
 // À l'entrée, un 地蔵 porte un 鈴 : la clochette qui éloigne les bêtes quand on veut juste traverser.
 import type { MapDef, Placed } from '../mapdef';
 import { OBJ } from '../objects';
@@ -92,11 +92,15 @@ export const SUSUKI: MapDef = {
     west: { x: 1.5, y: 14.6, face: 'right' },
   },
   exits: [{ side: 'west', from: 12, to: 15, gate: 'east', place: 'kirino' }],
+  // Session 12 : le fond se coupe en deux (l'étang 6 à 8, au nord ; le fond de la lande 8 à 10, au sud), et la brume
+  // le ferme tant que le contrat du col n'est pas rapporté (on y arrive vers le niveau 5 ou 6).
   zones: [
     { rect: [5, 3, 15, 23], lv: [1, 3], name: '野原の入口' },
     { rect: [16, 5, 27, 22], lv: [3, 6], name: '野原の中' },
-    { rect: [28, 6, 38, 25], lv: [6, 10], name: '池のほとり' },
+    { rect: [28, 6, 38, 14], lv: [6, 8], name: '池のほとり' },
+    { rect: [28, 15, 38, 25], lv: [8, 10], name: '野原の奥' },
   ],
+  barriers: [{ cells: Array.from({ length: 19 }, (_, i): [number, number] => [27, 6 + i]), flag: 'c2', say: 'susuki:fog' }],
   npcs: [],
   readables: { 'bell-jizo': 'susuki:bell', 'sign-susuki': 'sign-susuki' },
 };

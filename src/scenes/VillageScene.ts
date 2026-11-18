@@ -6,12 +6,13 @@ import { DEPTH, drawMap } from '../world/draw';
 import { SPEAKERS } from '../world/dialogue';
 import type { Critter, Door, MapDef, NpcDef } from '../world/mapdef';
 import { MAPS } from '../world/maps';
-import { saveWorld, world } from '../world/state';
+import { clockAt, playTick, saveWorld, world } from '../world/state';
 import * as UI from '../world/ui';
 import { hooks, maybeWeekly } from '../world/vn';
 import * as Quests from '../world/quests';
 import * as Field from '../world/field';
 import * as Hunts from '../world/hunts';
+import * as Craft from '../world/craft';
 import { nextRumor, readPlan } from '../world/examine';
 import { paintTextures } from '../world/paint';
 import { DIALOGUES } from '../world/dialogue';
@@ -60,7 +61,7 @@ export class VillageScene extends Phaser.Scene {
   private rumorAt = -1e9;
   private rumorAway = true;
   private bubbles: { el: HTMLElement; who: () => Phaser.GameObjects.Sprite | undefined }[] = [];
-  private pending: { heal?: boolean; rest?: boolean } = {};
+  private pending: { heal?: boolean; rest?: boolean; made?: string; leave?: boolean; maker?: Craft.Maker } = {};
   private lookClock = 0;
   private leaving = false;
   private busy = false;
@@ -146,8 +147,13 @@ export class VillageScene extends Phaser.Scene {
     hooks.act = (a) => this.onAct(a);
     hooks.bell = () => this.refreshField();
     const onBell = () => this.ringBell();
+    const onDango = () => this.eatDango();
     window.addEventListener('kotodama:bell', onBell);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => window.removeEventListener('kotodama:bell', onBell));
+    window.addEventListener('kotodama:dango', onDango);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('kotodama:bell', onBell);
+      window.removeEventListener('kotodama:dango', onDango);
+    });
     this.makeMarkers();
     this.refreshQuest();
     // Session 11 : on reprend des forces au salon de thé (お茶, お団子), plus en entrant au village.
@@ -237,6 +243,27 @@ export class VillageScene extends Phaser.Scene {
       meet: () => (this.forceNext = true),
       fight: (sp = 'tsubuyaki', lvl = 1, rare = false, zone?: string) => this.encounter({ sp, lvl, rare, zone: zone ?? this.zoneHere()?.name }),
       bell: (on?: boolean) => this.ringBell(on),
+      // Session 12 : `KDW.craft()` ce que proposent おみつ et 萬作, `KDW.eat()` mange un dango, `KDW.exit('east')` sort du lieu, `KDW.clock()` le temps de jeu,
+      // `KDW.give({ kome: 6 })` remplit le sac (mode test), `KDW.lv(5)` met le 渡り au niveau voulu.
+      craft: () => ({ omitsu: Craft.offered('omitsu').map((r) => r.id), mansaku: Craft.offered('mansaku').map((r) => r.id), can: [...Craft.affordable('omitsu'), ...Craft.affordable('mansaku')].map((r) => r.id), items: { ...Field.field().items }, parts: { ...Field.field().parts } }),
+      eat: () => this.eatDango(),
+      exit: (side = 'south') => this.leave(side),
+      boss: (id: string) => this.scene.start('combat', { quest: id }), // mode test : relancer la chasse d'un contrat
+      clock: () => JSON.parse(JSON.stringify(world().clock ?? null)),
+      give: (m: Partial<Record<Field.Mat, number>>) => {
+        const f = Field.field();
+        for (const [k, n] of Object.entries(m)) f.bag[k as Field.Mat] = (f.bag[k as Field.Mat] ?? 0) + (n ?? 0);
+        Field.saveField();
+        this.refreshField();
+      },
+      lv: (n: number) => {
+        const f = Field.field();
+        f.lvl = n;
+        f.xp = 0;
+        f.hp = Field.hpMax();
+        Field.saveField();
+        this.refreshField();
+      },
     };
   }
 
@@ -291,6 +318,7 @@ export class VillageScene extends Phaser.Scene {
         if (!UI.dialogOpen() && !UI.panelOpen()) this.interact();
       } else if (e.code === 'KeyM') this.sound.mute = !this.sound.mute;
       else if (e.code === 'KeyX' && !UI.dialogOpen() && !UI.panelOpen()) this.ringBell();
+      else if (e.code === 'KeyC' && !UI.dialogOpen() && !UI.panelOpen() && !this.busy) this.eatDango();
     });
   }
 
@@ -360,7 +388,7 @@ export class VillageScene extends Phaser.Scene {
         this.blobs.push(this.add.image(x * TILE, y * TILE, 'fogblob').setDepth(DEPTH.fog).setAlpha(0.7).setScale(sc));
     // Au col, la brume qui barre la descente.
     for (const b of this.def.barriers ?? [])
-      if (!world().flags[b.flag])
+      if (!this.barrierOpen(b))
         for (const [x, y] of b.cells) this.barrierFog.push(this.add.image((x + 0.5) * TILE, (y + 0.5) * TILE, 'fogblob').setDepth(DEPTH.fog).setAlpha(0.95).setScale(0.32));
   }
 
@@ -373,6 +401,9 @@ export class VillageScene extends Phaser.Scene {
 
   update(_t: number, dtMs: number): void {
     const dt = Math.min(dtMs, 50) / 1000;
+    // Temps de jeu, par étape de l'histoire (session 12 : pour régler l'équilibrage sur la vraie partie).
+    clockAt(world().flags.ch1 ? 'fin' : (Quests.current()?.id ?? 'fin'));
+    playTick(Math.min(dtMs, 250) / 1000, this.def.zones ? 'field' : 'world');
     this.fog[0].tilePositionX += dt * 4;
     this.fog[0].tilePositionY += dt * 1.2;
     this.fog[1].tilePositionX -= dt * 2.5;
@@ -451,8 +482,13 @@ export class VillageScene extends Phaser.Scene {
 
   /** La brume du col barre la descente tant que ワケ n'est pas libéré. */
   private barrierAt(tx: number, ty: number) {
-    const f = world().flags;
-    return this.def.barriers?.find((b) => !f[b.flag] && b.cells.some(([x, y]) => x === tx && y === ty));
+    return this.def.barriers?.find((b) => !this.barrierOpen(b) && b.cells.some(([x, y]) => x === tx && y === ty));
+  }
+
+  /** Une brume s'ouvre avec un drapeau de l'histoire (ワケ libéré), ou quand un contrat est rapporté (« c2 »). */
+  private barrierOpen(b: { flag: string }): boolean {
+    const w = world();
+    return !!w.flags[b.flag] || w.quests[b.flag]?.step === 'done';
   }
 
   private blocked(x: number, y: number): boolean {
@@ -571,6 +607,8 @@ export class VillageScene extends Phaser.Scene {
       const base = this.def.readables[t.id] ?? t.id;
       const plan = Quests.sitePlan(t.id, base);
       if (!plan.hunt && plan.ids.length === 1 && plan.ids[0] === base) plan.ids = readPlan(this.def.id, t.id, base);
+      // Session 12 : avant une distorsion, ワケ dit le niveau conseillé si le 渡り n'y est pas (on peut y aller quand même).
+      if (plan.hunt && Field.field().lvl < plan.hunt.rec) plan.ids = [Quests.recHint(plan.hunt), ...plan.ids];
       this.busy = true;
       UI.openChain(plan.ids, () => {
         this.busy = false;
@@ -587,20 +625,40 @@ export class VillageScene extends Phaser.Scene {
     const plan = Quests.talkPlan(t.id);
     // Rien sur les contrats : une quête de chasse à donner ou à recevoir, ou, au salon de thé, la commande d'おみつ.
     let hunt: Hunts.Plan | null = null;
+    let maker: Craft.Maker | null = null;
     if (plan.ordinary && world().seen['talk:' + t.id]) {
       const hint = plan.hint ? [plan.hint] : [];
       hunt = Hunts.talkPlan(t.id);
       // Au salon de thé, おみつ prend toujours la commande (après avoir rappelé sa demande, s'il y en a une en cours).
-      const order = this.def.id === 'chaya' && t.id === 'omitsu' && (!hunt || hunt.ids[0].endsWith(':wait')) ? ['chaya:menu'] : [];
+      // Session 12 : la commande est dite à voix haute parmi ce qu'on peut payer (craft.ts) ; 萬作 fabrique après le moulin.
+      let order: string[] = [];
+      if (this.def.id === 'chaya' && t.id === 'omitsu' && (!hunt || hunt.ids[0].endsWith(':wait'))) {
+        maker = 'omitsu';
+        const intro = Craft.offered('omitsu').some((r) => r.id === 'sanshoku') && !world().seen['craft:sanshoku'] ? ['omitsu:sanshoku'] : [];
+        if (intro.length) world().seen['craft:sanshoku'] = true;
+        DIALOGUES['craft:pick'] = [Craft.pick('omitsu')];
+        order = [...intro, 'chaya:menu', 'craft:pick'];
+      } else if (t.id === 'mansaku' && Craft.mansakuOpen() && (!hunt || hunt.ids[0].endsWith(':wait'))) {
+        if (!world().seen['craft:intro']) {
+          world().seen['craft:intro'] = true;
+          order = ['craft:intro'];
+        } else if (Craft.affordable('mansaku').length) {
+          maker = 'mansaku';
+          DIALOGUES['craft:pick'] = [Craft.pick('mansaku')];
+          order = ['mansaku:craft', 'craft:pick'];
+        } else if (Craft.offered('mansaku').length) this.time.delayedCall(600, () => UI.toast('萬作 <small>il te manque des matériaux pour ce qu’il sait faire · メニュー → 持ち物</small>'));
+      }
       if (hunt) plan.ids = [...hunt.ids, ...order, ...hint];
       else if (order.length) plan.ids = [...order, ...hint];
     }
+    if (maker) UI.orderSheet(maker, Craft.sheet(maker));
     const accepting = !hunt && plan.ids.some((i) => i.endsWith(':give'));
     const reporting = !hunt && plan.ids.some((i) => i.endsWith(':report'));
     this.busy = true;
-    this.pending = {};
+    this.pending = { maker: maker ?? undefined };
     UI.openChain(plan.ids, () => {
       this.busy = false;
+      UI.orderSheet(null);
       this.time.delayedCall(400, () => n.sprite.setFrame(idleFrame(n.home)));
       world().seen['talk:' + t.id] = true;
       plan.after?.();
@@ -616,8 +674,9 @@ export class VillageScene extends Phaser.Scene {
       if (accepting && q) UI.placeCard(q.title, `${q.side ? '小依頼' : '依頼'} · ${q.fr}`, '依');
       if (reporting && q) {
         UI.placeCard(q.title, 'Contrat rempli', '了');
-        const ups = Field.gainXp(Field.XP_REPORT);
-        UI.toast(`縁 ＋1 <small>${Quests.NAMES[t.id] ?? ''} · 経験 +${Field.XP_REPORT}${ups.length ? ` · 渡り Lv ${ups[ups.length - 1]}` : ''}</small>`);
+        const xp = Field.storyXp('report');
+        const ups = Field.gainXp(xp);
+        UI.toast(`縁 ＋1 <small>${Quests.NAMES[t.id] ?? ''} · 経験 +${xp}${ups.length ? ` · 渡り Lv ${ups[ups.length - 1]}` : ''}</small>`);
         this.refreshField();
       }
       this.refreshQuest();
@@ -813,7 +872,7 @@ export class VillageScene extends Phaser.Scene {
       }
     }
     for (const b of this.def.barriers ?? []) {
-      if (save.flags[b.flag]) continue;
+      if (this.barrierOpen(b)) continue;
       const near = b.cells.some(([x, y]) => Math.hypot(this.player.x / TILE - x - 0.5, this.player.y / TILE - 0.3 - y - 0.5) < 1.3);
       if (near && this.time.now - this.fogSaidAt > 9000) {
         this.fogSaidAt = this.time.now;
@@ -1089,8 +1148,8 @@ export class VillageScene extends Phaser.Scene {
   private refreshField(): void {
     const f = Field.field(), z = this.zoneHere();
     // Dans le village aussi (session 11), dès qu'on a combattu : on voit ses PV et on sait quand passer au salon de thé.
-    if (!this.def.zones && (this.def.id === 'pass' || (!f.wins && !f.hasBell && f.hp >= Field.maxHp(f.lvl)))) return UI.fieldHud(null);
-    UI.fieldHud({ lvl: f.lvl, hp: f.hp, max: Field.maxHp(f.lvl), xp: f.xp / Field.xpToNext(f.lvl), bell: f.hasBell ? f.bell : null, zone: z ? `${z.name} · Lv ${z.lv[0]}–${z.lv[1]}` : '' });
+    if (!this.def.zones && (this.def.id === 'pass' || (!f.wins && !f.hasBell && f.hp >= Field.hpMax()))) return UI.fieldHud(null);
+    UI.fieldHud({ lvl: f.lvl, hp: f.hp, max: Field.hpMax(), xp: f.xp / Field.xpToNext(f.lvl), bell: f.hasBell ? f.bell : null, zone: z ? `${z.name} · Lv ${z.lv[0]}–${z.lv[1]}` : '', dango: Craft.dangoCount(), lure: f.lure, chain: f.chain });
   }
 
   // ---------- le village vivant (session 11) ----------
@@ -1355,17 +1414,49 @@ export class VillageScene extends Phaser.Scene {
     return Quests.marker(id) ?? (world().seen['talk:' + id] ? Hunts.marker(id) : null);
   }
 
-  /** Ce qu'une phrase dite déclenche : la déduction d'un contrat, ou une commande au salon de thé. */
+  /** Ce qu'une phrase dite déclenche : la déduction d'un contrat, une commande au salon de thé ou à l'atelier. */
   private onAct(a: string): void {
     if (a.startsWith('guess:')) return Quests.act(a);
     if (a.startsWith('heal')) this.pending.heal = true;
     if (a.startsWith('rest')) this.pending.rest = true;
+    if (a.startsWith('leave')) this.pending.leave = true;
+    if (a.startsWith('make:')) {
+      // La commande est faite tout de suite : l'artisan répond en tendant l'objet.
+      const id = a.split(':')[1];
+      if (Craft.make(id)) this.pending.made = id;
+      const m = this.pending.maker;
+      if (m) UI.orderSheet(m, Craft.sheet(m));
+    }
   }
 
-  /** Après la commande : le thé et les dango rendent les forces, se reposer ouvre la セーブ. */
+  /**
+   * Après la commande : le thé rend les forces, se reposer ouvre la セーブ. Une chose fabriquée : on l'annonce, puis
+   * l'artisan demande s'il faut autre chose (tant qu'on peut payer) ; on répond à voix haute, ou « それで、大丈夫です ».
+   */
   private afterOrder(): void {
     const p = this.pending;
     this.pending = {};
+    if (p.made) {
+      const r = Craft.recipeById(p.made)!;
+      if (this.cache.audio.exists('audio/accept')) this.sound.play('audio/accept', { volume: 0.4, rate: 1.15 });
+      UI.toast(r.kind === 'part' ? `${r.name} <small>posé sur le sabre · ${r.fr}</small>` : `${r.name} <small>×${Field.field().items[r.id as Field.Item] ?? 0} dans le sac · ${r.fr}</small>`);
+      this.refreshField();
+      const maker = r.maker;
+      const first = r.kind === 'dango' && !world().seen['craft:dango'];
+      if (first) world().seen['craft:dango'] = true;
+      const more = Craft.affordable(maker).length > 0;
+      DIALOGUES['craft:pick'] = [Craft.pick(maker, true)];
+      const ids = [...(first ? ['chaya:dango'] : []), ...(more ? [`${maker}:more`, 'craft:pick'] : [`${maker}:bye`])];
+      this.busy = true;
+      this.pending = { maker };
+      if (more) UI.orderSheet(maker, Craft.sheet(maker));
+      UI.openChain(ids, () => {
+        this.busy = false;
+        UI.orderSheet(null);
+        this.afterOrder();
+      });
+      return;
+    }
     if (!p.heal && !p.rest) return;
     const f = Field.field();
     const was = f.hp;
@@ -1373,9 +1464,22 @@ export class VillageScene extends Phaser.Scene {
     this.refreshField();
     if (this.cache.audio.exists('audio/accept')) this.sound.play('audio/accept', { volume: 0.35, rate: 1.3 });
     if (p.rest) {
-      UI.toast(`一休み <small>PV ${Field.maxHp(f.lvl)}/${Field.maxHp(f.lvl)} · sauvegarde ouverte</small>`);
+      UI.toast(`一休み <small>PV ${Field.hpMax()}/${Field.hpMax()} · sauvegarde ouverte</small>`);
       UI.openSave();
-    } else UI.toast(`ごちそうさま <small>PV ${was} → ${Field.maxHp(f.lvl)}</small>`);
+    } else UI.toast(`ごちそうさま <small>PV ${was} → ${Field.hpMax()}</small>`);
+  }
+
+  /** Manger un dango (touche C, bouton 団子 de l'encart) : みたらし si elle suffit, sinon le 三色. */
+  private eatDango(): void {
+    const f = Field.field();
+    if (!Craft.dangoCount()) return UI.toast('団子 <small>plus de dango · おみつ en emballe au salon de thé</small>');
+    if (f.hp >= Field.hpMax()) return UI.toast('団子 <small>tes PV sont pleins</small>');
+    const id = Craft.bestDango()!;
+    const was = f.hp;
+    Craft.eat(id);
+    if (this.cache.audio.exists('audio/accept')) this.sound.play('audio/accept', { volume: 0.3, rate: 1.5 });
+    UI.toast(`${Craft.recipeById(id)!.name} <small>PV ${was} → ${Field.field().hp} · reste ${Field.field().items[id] ?? 0}</small>`);
+    this.refreshField();
   }
 
   /** Un PNJ qui vit ailleurs vient le temps d'une cinématique (おみつ devant son salon de thé). */

@@ -2340,5 +2340,192 @@
   "voice_id": "C6EwdDpfpjUWhKn1xeaG",
   "model": "eleven_v4",
   "ext": "ogg"
+ },
+ "omitsu.make.mitarashi_0": {
+  "id": "omitsu:make:mitarashi:0",
+  "who": "omitsu",
+  "text": "みたらし、ひとつね。……はい、どうぞ。",
+  "tts": "みたらし、ひとつね。……はい、どうぞ。",
+  "engine": "elevenlabs",
+  "voice": "Konomi - Soft & Friendly",
+  "voice_id": "MhnQB6oLKSlS0AIJzxtO",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "omitsu.make.sanshoku_0": {
+  "id": "omitsu:make:sanshoku:0",
+  "who": "omitsu",
+  "text": "三色団子。……母さんの味よ。",
+  "tts": "三色だんご。……母さんの味よ。",
+  "engine": "elevenlabs",
+  "voice": "Konomi - Soft & Friendly",
+  "voice_id": "MhnQB6oLKSlS0AIJzxtO",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "omitsu.more_0": {
+  "id": "omitsu:more:0",
+  "who": "omitsu",
+  "text": "ほかには？",
+  "tts": "ほかには？",
+  "engine": "elevenlabs",
+  "voice": "Konomi - Soft & Friendly",
+  "voice_id": "MhnQB6oLKSlS0AIJzxtO",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "omitsu.bye_0": {
+  "id": "omitsu:bye:0",
+  "who": "omitsu",
+  "text": "また来てね。",
+  "tts": "また来てね。",
+  "engine": "elevenlabs",
+  "voice": "Konomi - Soft & Friendly",
+  "voice_id": "MhnQB6oLKSlS0AIJzxtO",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "omitsu.sanshoku_0": {
+  "id": "omitsu:sanshoku:0",
+  "who": "omitsu",
+  "text": "あのね。母さんの三色団子、作り方を思い出したの。",
+  "tts": "あのね。母さんの三色だんご、作り方を思い出したの。",
+  "engine": "elevenlabs",
+  "voice": "Konomi - Soft & Friendly",
+  "voice_id": "MhnQB6oLKSlS0AIJzxtO",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "omitsu.sanshoku_1": {
+  "id": "omitsu:sanshoku:1",
+  "who": "omitsu",
+  "text": "お米が四つあれば、包むわ。",
+  "tts": "お米が四つあれば、つつむわ。",
+  "engine": "elevenlabs",
+  "voice": "Konomi - Soft & Friendly",
+  "voice_id": "MhnQB6oLKSlS0AIJzxtO",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "craft.intro_0": {
+  "id": "craft:intro:0",
+  "who": "mansaku",
+  "text": "お前さん、その刀。柄の糸が、ほつれておる。",
+  "tts": "お前さん、そのかたな。つかのいとが、ほつれておる。",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "craft.intro_1": {
+  "id": "craft:intro:1",
+  "who": "mansaku",
+  "text": "材料を持ってくれば、わしが直す。お守りも作れる。",
+  "tts": "ざいりょうを持ってくれば、わしが直す。お守りも作れる。",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "mansaku.craft_0": {
+  "id": "mansaku:craft:0",
+  "who": "mansaku",
+  "text": "何を作る？",
+  "tts": "なにを作る？",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "mansaku.more_0": {
+  "id": "mansaku:more:0",
+  "who": "mansaku",
+  "text": "ほかに、何か作るか？",
+  "tts": "ほかに、なにか作るか？",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "mansaku.bye_0": {
+  "id": "mansaku:bye:0",
+  "who": "mansaku",
+  "text": "……うむ。",
+  "tts": "……うむ。",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "mansaku.make.tsukamaki_0": {
+  "id": "mansaku:make:tsukamaki:0",
+  "who": "mansaku",
+  "text": "糸を巻きなおした。……握ってみい。",
+  "tts": "いとをまきなおした。……にぎってみい。",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "mansaku.make.mamori_0": {
+  "id": "mansaku:make:mamori:0",
+  "who": "mansaku",
+  "text": "お守りじゃ。一度だけ、お前さんを守る。",
+  "tts": "お守りじゃ。一度だけ、お前さんを守る。",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "mansaku.make.tsuka_0": {
+  "id": "mansaku:make:tsuka:0",
+  "who": "mansaku",
+  "text": "新しい柄じゃ。軽いぞ。",
+  "tts": "新しいつかじゃ。かるいぞ。",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "mansaku.make.tsuba_0": {
+  "id": "mansaku:make:tsuba:0",
+  "who": "mansaku",
+  "text": "鍔じゃ。古い鉄じゃが、丈夫じゃ。",
+  "tts": "つばじゃ。古いてつじゃが、じょうぶじゃ。",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "mansaku.make.yobi_0": {
+  "id": "mansaku:make:yobi:0",
+  "who": "mansaku",
+  "text": "赤い札じゃ。朱の言蟲が、寄ってくる。",
+  "tts": "赤いふだじゃ。しゅのことむしが、寄ってくる。",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
+ },
+ "mansaku.make.saya_0": {
+  "id": "mansaku:make:saya:0",
+  "who": "mansaku",
+  "text": "鞘じゃ。……久しぶりに、いい仕事をした。",
+  "tts": "さやじゃ。……ひさしぶりに、いい仕事をした。",
+  "engine": "elevenlabs",
+  "voice": "JUN (Japanese)",
+  "voice_id": "JOcmGzB8OFjY8MhjHHEf",
+  "model": "eleven_v4",
+  "ext": "ogg"
  }
 }

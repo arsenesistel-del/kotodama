@@ -7,6 +7,9 @@ const KEY = 'kotodama.field.v1';
 
 export type Frame = 'omou' | 'kamo' | 'souda' | 'ndesu';
 export type Mat = 'sumi' | 'washi' | 'ito' | 'mokuhen' | 'teppen' | 'kome';
+/** Ce que おみつ et 萬作 fabriquent (session 12, craft.ts) : dango et 札 qu'on porte, pièces du sabre posées une fois pour toutes. */
+export type Item = 'mitarashi' | 'sanshoku' | 'mamori' | 'yobi';
+export type Part = 'tsukamaki' | 'tsuba' | 'tsuka' | 'saya';
 
 export interface Species {
   id: string;
@@ -37,7 +40,7 @@ export const SPECIES: Species[] = [
   },
   {
     id: 'mayoiga', name: 'まよい蛾', reading: 'まよいが', fr: 'La phalène qui hésite', frame: 'kamo', px: 'k_mayoi', after: 'c2',
-    mats: [['washi', 3], ['ito', 2], ['sumi', 2], ['mokuhen', 1]],
+    mats: [['washi', 2], ['ito', 2], ['sumi', 2], ['mokuhen', 2]],
     lore: 'Ses ailes battent entre deux positions sans choisir. Elle naît des « peut-être » qu’on n’a pas osé dire.',
     glyphs: 'かもしれ迷',
   },
@@ -83,9 +86,14 @@ export interface FieldSave {
   beasts: Record<string, Met>;
   wins: number;
   tally: Record<string, number>; // bêtes apaisées par espèce et par zone (« uwasadori@野原の入口 ») : les quêtes de chasse
+  // Session 12, l'économie.
+  items: Partial<Record<Item, number>>; // dango et 札 dans le sac
+  parts: Partial<Record<Part, boolean>>; // pièces du sabre posées par 萬作
+  lure: number; // rencontres qui restent sous le 呼び札 (variantes 朱 plus fréquentes)
+  chain: number; // combats gagnés d'affilée sans coup reçu (bonus d'expérience)
 }
 
-const fresh = (): FieldSave => ({ v: 1, lvl: 1, xp: 0, hp: maxHp(1), bag: {}, bell: false, hasBell: false, beasts: {}, wins: 0, tally: {} });
+const fresh = (): FieldSave => ({ v: 1, lvl: 1, xp: 0, hp: maxHp(1), bag: {}, bell: false, hasBell: false, beasts: {}, wins: 0, tally: {}, items: {}, parts: {}, lure: 0, chain: 0 });
 let cache: FieldSave | null = null;
 
 export function field(): FieldSave {
@@ -93,6 +101,9 @@ export function field(): FieldSave {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
     cache = s && s.v === 1 ? Object.assign(fresh(), s) : fresh();
+    // Une sauvegarde d'avant la session 12 n'a ni objets ni pièces.
+    cache!.items ??= {};
+    cache!.parts ??= {};
   } catch {
     cache = fresh();
   }
@@ -107,6 +118,13 @@ export function saveField(): void {
   }
 }
 
+/** はじめから : le 渡り repart du niveau 1, sac vide et sans clochette. Le 図鑑 (ce qu'on a croisé) reste. */
+export function newRun(): void {
+  const beasts = field().beasts;
+  cache = Object.assign(fresh(), { beasts });
+  saveField();
+}
+
 /** Pour les tests : repartir de zéro, ou d'un état donné. */
 export function resetField(s?: Partial<FieldSave>): void {
   cache = Object.assign(fresh(), s ?? {});
@@ -114,10 +132,33 @@ export function resetField(s?: Partial<FieldSave>): void {
 
 // ---------- le 渡り progresse ----------
 // Du confort seulement : des PV, un peu de temps. Le niveau du joueur ne change jamais la phrase demandée.
+// Courbe réglée en session 12 sur une partie conseillée de 5 à 8 heures (scripts/check-balance.mjs).
 
 export const maxHp = (lvl: number): number => 4 + Math.ceil(lvl / 2);
 export const timeBonus = (lvl: number): number => Math.min(3, (lvl - 1) * 0.3);
-export const xpToNext = (lvl: number): number => 15 + 10 * lvl;
+// Chapitre 1 (tranche 1 à 10) : une table, réglée pour une vingtaine de combats par niveau dans la bonne zone, le
+// premier niveau plus vite. Au-delà, une pente qu'il faudra régler avec la tranche du chapitre 2 (8 à 20).
+const XP_TABLE = [0, 120, 380, 640, 670, 800, 900, 880, 1150, 1200];
+export const xpToNext = (lvl: number): number => XP_TABLE[lvl] ?? 1200 + 110 * (lvl - 9);
+
+/** Ce que donnent les pièces du sabre (萬作, craft.ts). */
+export const PART_FX: Record<Part, { hp?: number; time?: number; crit?: number; boss?: number }> = {
+  tsukamaki: { time: 0.5 }, // un sabre qu'on tient bien : un peu plus de temps pour répondre
+  tsuba: { hp: 1 }, // la garde : un PV de plus
+  tsuka: { crit: 500 }, // un manche plus léger : le coup critique part jusqu'à 4 s
+  saya: { boss: 0.2 }, // le fourreau : dégâts +20 % contre les distorsions de l'histoire
+};
+const fx = (k: 'hp' | 'time' | 'crit' | 'boss') =>
+  (Object.keys(PART_FX) as Part[]).reduce((a, p) => a + (field().parts?.[p] ? (PART_FX[p][k] ?? 0) : 0), 0);
+
+/** PV max, niveau et pièces du sabre comprises. */
+export const hpMax = (): number => maxHp(field().lvl) + fx('hp');
+/** Temps de réponse en plus, niveau et pièces comprises. */
+export const timeNow = (): number => timeBonus(field().lvl) + fx('time');
+/** Millisecondes gagnées sur le seuil du coup critique (3,5 s). */
+export const critBonus = (): number => fx('crit');
+/** Multiplicateur des dégâts contre une distorsion. */
+export const bossDmg = (): number => 1 + fx('boss');
 
 /** Ajoute de l'expérience ; rend les niveaux gagnés. Un niveau gagné rend tous les PV. */
 export function gainXp(n: number): number[] {
@@ -129,22 +170,26 @@ export function gainXp(n: number): number[] {
     f.lvl++;
     ups.push(f.lvl);
   }
-  if (ups.length) f.hp = maxHp(f.lvl);
+  if (ups.length) f.hp = hpMax();
   saveField();
   return ups;
 }
 
-export function heal(): void {
+export function heal(n = Infinity): number {
   const f = field();
-  f.hp = maxHp(f.lvl);
+  const was = f.hp;
+  f.hp = Math.min(hpMax(), f.hp + n);
   saveField();
+  return f.hp - was;
 }
 
-/** Expérience des contrats (REFONTE : bêtes, quêtes, contrats). */
-export const XP_CONTRACT = 30;
-export const XP_BOSS = 60;
-export const XP_REPORT = 20;
-
+/**
+ * Expérience de l'histoire (REFONTE : bêtes, quêtes, contrats), en part du niveau en cours : un contrat gagné vaut
+ * un quart de niveau, le boss du chapitre la moitié, un rapport un dixième, une quête de chasse un cinquième.
+ * Proportionnelle, pour que les contrats ne fassent pas sauter de niveaux au début ni ne comptent pour rien à la fin.
+ */
+export const STORY_XP = { contract: 0.25, boss: 0.5, report: 0.1, hunt: 0.2 } as const;
+export const storyXp = (k: keyof typeof STORY_XP, lvl = field().lvl): number => Math.round(STORY_XP[k] * xpToNext(lvl));
 // ---------- les bêtes ----------
 
 const doneQuest = (id?: string) => !id || world().quests[id]?.step === 'done';
@@ -194,13 +239,15 @@ export function roll(zone: Zone, r: () => number = Math.random): Beast {
   let v = r() * w.reduce((a, b) => a + b, 0), sp = list[0];
   for (let i = 0; i < list.length; i++) if ((v -= w[i]) < 0) { sp = list[i]; break; }
   const [a, b] = zone.lv;
-  const rare = r() < 1 / 16;
+  const rare = r() < rareChance();
   const lvl = Math.max(TRANCHE[0], Math.min(TRANCHE[1], a + Math.floor(r() * (b - a + 1)) + (rare ? 1 : 0)));
   return { sp: sp.id, lvl, rare, zone: zone.name };
 }
 
 /** Chance de rencontre par case d'herbe haute traversée. */
 export const RATE = 1 / 9;
+/** Variante 朱 : une sur seize, une sur quatre sous le 呼び札. */
+export const rareChance = (): number => (field().lure > 0 ? 1 / 4 : 1 / 16);
 
 export const beastName = (b: Beast) => (b.rare ? '朱' : '') + speciesById(b.sp)!.name;
 
@@ -235,12 +282,20 @@ export function meet(b: Beast): void {
   m.seen++;
   m.maxLv = Math.max(m.maxLv, b.lvl);
   if (b.rare) m.rare++;
+  if (f.lure > 0) f.lure--;
   saveField();
 }
 
-/** Expérience d'une bête apaisée : son niveau, plus les coups critiques et un combat sans coup reçu. */
-export function beastXp(b: Beast, crits: number, clean: boolean): number {
-  return Math.round((3 + 2 * b.lvl) * (b.rare ? 2 : 1) + crits + (clean ? 2 : 0));
+/**
+ * Expérience d'une bête apaisée : son niveau, les coups critiques, un combat sans coup reçu. Une bête trop faible
+ * pour le 渡り rapporte moins (on avance vers les herbes plus dures), et un combat sans coup reçu qui suit d'autres
+ * combats sans coup reçu rapporte plus (le 連鎖 : dire juste fait avancer plus vite, jusqu'à +50 %).
+ */
+export function beastXp(b: Beast, crits: number, clean: boolean, plv = field().lvl, chain = field().chain): number {
+  const base = (2 + 3 * b.lvl) * (b.rare ? 2 : 1) + crits + (clean ? 2 : 0);
+  const gap = plv - b.lvl - 2;
+  const low = gap > 0 ? Math.max(0.2, 1 - 0.25 * gap) : 1;
+  return Math.max(1, Math.round(base * low * (1 + 0.1 * Math.min(clean ? chain : 0, 5))));
 }
 
 /**
@@ -258,9 +313,9 @@ export function loot(b: Beast, hard: number, r: () => number = Math.random): Par
     for (let i = 0; i < ws.length; i++) if ((v -= ws[i]) < 0) return sp.mats[i][0];
     return sp.mats[0][0];
   };
-  let rolls = 1 + (b.lvl >= 5 ? 1 : 0) + (b.lvl >= 8 ? 1 : 0) + (hard > 0 ? 1 : 0) + (b.rare ? 1 : 0);
+  let rolls = 1 + (b.lvl >= 6 ? 1 : 0) + (hard > 0 ? 1 : 0) + (b.rare ? 1 : 0);
   while (rolls-- > 0) add(pick());
-  if (b.rare || (b.lvl >= 9 && r() < 0.25)) add('teppen');
+  if (b.rare || (b.lvl >= 9 && r() < 0.2)) add('teppen');
   return out;
 }
 
@@ -269,6 +324,7 @@ export interface Outcome {
   ups: number[];
   loot: Partial<Record<Mat, number>>;
   hard: number;
+  chain: number; // combats d'affilée sans coup reçu, celui-ci compris
 }
 
 /** Fin d'un combat gagné : 図鑑, expérience, butin dans le sac, PV gardés. */
@@ -283,14 +339,17 @@ export function calm(b: Beast, o: { crits: number; clean: boolean; hard: number;
   const got = loot(b, o.hard);
   for (const [k, n] of Object.entries(got)) f.bag[k as Mat] = (f.bag[k as Mat] ?? 0) + (n ?? 0);
   const xp = beastXp(b, o.crits, o.clean);
+  f.chain = o.clean ? f.chain + 1 : 0;
   saveField();
   const ups = gainXp(xp);
-  return { xp, ups, loot: got, hard: o.hard };
+  return { xp, ups, loot: got, hard: o.hard, chain: f.chain };
 }
 
-/** Le joueur s'est enfui, ou il a perdu : on garde ses PV (au moins 1, puisqu'on ramène au village après une défaite). */
+/** Le joueur s'est enfui, ou il a perdu : on garde ses PV (au moins 1, puisqu'on ramène au village après une défaite). La chaîne se rompt. */
 export function setHp(hp: number): void {
-  field().hp = Math.max(0, hp);
+  const f = field();
+  f.hp = Math.max(0, hp);
+  f.chain = 0;
   saveField();
 }
 

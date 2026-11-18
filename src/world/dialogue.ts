@@ -126,6 +126,11 @@ export const DIALOGUES: Record<string, Line[]> = {
     { who: 'wake', fr: 'Un 鈴. Les 言蟲 détestent ce son : tant qu’il tinte, elles te laissent passer.' },
     { who: 'wake', fr: 'Touche X pour le faire tinter ou le ranger (ou メニュー → 持ち物). Range-le quand tu veux t’entraîner : chaque bête, c’est une phrase de plus.' },
   ],
+  // Session 12 : le fond de la lande reste dans la brume jusqu'au contrat du col.
+  'susuki:fog': [
+    { who: 'wake', fr: 'Trop épais, par là. On n’y verrait pas nos pieds.' },
+    { who: 'wake', fr: 'Derrière, il y a l’étang, et des bêtes plus coriaces. La brume s’éclaircira quand le village aura retrouvé un peu de sa voix : finissons d’abord l’affaire du col.' },
+  ],
   'susuki:bell:again': [{ who: 'wake', fr: 'La corde du 地蔵 est vide. Le 鈴, c’est toi qui l’as : touche X.' }],
   'sign-bridge': [
     { who: 'sign', jp: '{吊|つ}り{橋|ばし}　{一人|ひとり}ずつ{渡|わた}ること', fr: 'Pont suspendu. Traverser un par un.' },

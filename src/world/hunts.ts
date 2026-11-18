@@ -31,7 +31,6 @@ export const HUNTS: HuntDef[] = [
   { id: 'h5', title: '狐払い', reading: 'きつねばらい', fr: 'Les renards du pont', giver: 'mansaku', sp: 'wakegitsune', zone: '池のほとり', n: 2, after: 'c3', reward: { teppen: 1, mokuhen: 2 }, key: 1 },
 ];
 
-export const XP_HUNT = 25;
 
 export interface HuntState {
   step: 'given' | 'done';
@@ -92,13 +91,14 @@ export function talkPlan(npc: string): Plan | null {
       if (h.mat) f.bag[h.mat] = Math.max(0, (f.bag[h.mat] ?? 0) - h.n);
       for (const [m, k] of Object.entries(h.reward)) f.bag[m as Field.Mat] = (f.bag[m as Field.Mat] ?? 0) + (k ?? 0);
       Field.saveField();
-      const ups = Field.gainXp(XP_HUNT);
+      const xp = Field.storyXp('hunt');
+      const ups = Field.gainXp(xp);
       const w = world();
       w.en[npc] = (w.en[npc] ?? 0) + 1;
       saveWorld();
       return {
         card: [h.title, 'Demande remplie', '了'],
-        toast: `縁 ＋1 <small>${Field.fmtLoot(h.reward)} · 経験 +${XP_HUNT}${ups.length ? ` · 渡り Lv ${ups[ups.length - 1]}` : ''}</small>`,
+        toast: `縁 ＋1 <small>${Field.fmtLoot(h.reward)} · 経験 +${xp}${ups.length ? ` · 渡り Lv ${ups[ups.length - 1]}` : ''}</small>`,
       };
     },
   };

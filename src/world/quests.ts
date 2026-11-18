@@ -5,6 +5,7 @@
 import { DIALOGUES } from './dialogue';
 import { plain } from './text';
 import { saveWorld, world } from './state';
+import * as Field from './field';
 
 export type Frame = 'omou' | 'kamo' | 'souda' | 'ndesu';
 
@@ -21,15 +22,16 @@ export interface QuestDef {
   answer: Frame; // la fin perdue
   prev?: string; // contrat à finir avant
   side?: boolean; // petit contrat de révision, tiré d'une rumeur : il ne bloque pas l'histoire
+  rec: number; // niveau conseillé du 渡り pour la chasse (session 12, scripts/check-balance.mjs)
 }
 
 export const QUESTS: QuestDef[] = [
-  { id: 'c1', title: '水車小屋の影', reading: 'すいしゃごやのかげ', fr: 'L’ombre du moulin', giver: 'taichi', witnesses: ['otane', 'gonbei'], site: 'site-mill', siteFr: 'le moulin', stage: 'c-kake', answer: 'omou' },
-  { id: 'c2', title: '峠の噂', reading: 'とうげのうわさ', fr: 'La rumeur du col', giver: 'omitsu', witnesses: ['mansaku', 'gonbei'], site: 'site-jizo', siteFr: 'le 地蔵 du col', stage: 'c-yuragi', answer: 'souda', prev: 'c1' },
-  { id: 'r1', title: '井戸の呟き', reading: 'いどのつぶやき', fr: 'Le murmure du puits', giver: 'omitsu', witnesses: ['taichi', 'otane'], site: 'site-well', siteFr: 'le puits', stage: 'c-tsubu', answer: 'omou', prev: 'c2', side: true },
-  { id: 'c3', title: '吊り橋', reading: 'つりばし', fr: 'Le pont suspendu', giver: 'mansaku', witnesses: ['otane', 'taichi'], site: 'sign-bridge', siteFr: 'le pont suspendu', stage: 'c-kuzure', answer: 'kamo', prev: 'c2' },
-  { id: 'r2', title: '案山子の迷い', reading: 'かかしのまよい', fr: 'L’hésitation de l’épouvantail', giver: 'otane', witnesses: ['gonbei', 'omitsu'], site: 'site-scarecrow', siteFr: 'l’épouvantail des rizières', stage: 'c-mayoi', answer: 'kamo', prev: 'c3', side: true },
-  { id: 'c4', title: '霧の丘', reading: 'きりのおか', fr: 'La colline de la brume', giver: 'mansaku', witnesses: ['taichi', 'omitsu'], site: 'tomb-otsuyu', siteFr: 'la tombe de お露, sur la colline', stage: 'c-kiri', answer: 'ndesu', prev: 'c3' },
+  { id: 'c1', title: '水車小屋の影', reading: 'すいしゃごやのかげ', fr: 'L’ombre du moulin', giver: 'taichi', witnesses: ['otane', 'gonbei'], site: 'site-mill', siteFr: 'le moulin', stage: 'c-kake', answer: 'omou', rec: 3 },
+  { id: 'c2', title: '峠の噂', reading: 'とうげのうわさ', fr: 'La rumeur du col', giver: 'omitsu', witnesses: ['mansaku', 'gonbei'], site: 'site-jizo', siteFr: 'le 地蔵 du col', stage: 'c-yuragi', answer: 'souda', prev: 'c1', rec: 5 },
+  { id: 'r1', title: '井戸の呟き', reading: 'いどのつぶやき', fr: 'Le murmure du puits', giver: 'omitsu', witnesses: ['taichi', 'otane'], site: 'site-well', siteFr: 'le puits', stage: 'c-tsubu', answer: 'omou', prev: 'c2', side: true, rec: 6 },
+  { id: 'c3', title: '吊り橋', reading: 'つりばし', fr: 'Le pont suspendu', giver: 'mansaku', witnesses: ['otane', 'taichi'], site: 'sign-bridge', siteFr: 'le pont suspendu', stage: 'c-kuzure', answer: 'kamo', prev: 'c2', rec: 8 },
+  { id: 'r2', title: '案山子の迷い', reading: 'かかしのまよい', fr: 'L’hésitation de l’épouvantail', giver: 'otane', witnesses: ['gonbei', 'omitsu'], site: 'site-scarecrow', siteFr: 'l’épouvantail des rizières', stage: 'c-mayoi', answer: 'kamo', prev: 'c3', side: true, rec: 9 },
+  { id: 'c4', title: '霧の丘', reading: 'きりのおか', fr: 'La colline de la brume', giver: 'mansaku', witnesses: ['taichi', 'omitsu'], site: 'tomb-otsuyu', siteFr: 'la tombe de お露, sur la colline', stage: 'c-kiri', answer: 'ndesu', prev: 'c3', rec: 10 },
 ];
 
 export type Step = 'given' | 'hunt' | 'report' | 'done';
@@ -189,6 +191,18 @@ export function hintText(q: QuestDef): string {
   return `On en sait assez. Direction ${q.siteFr}.`;
 }
 
+/** Session 12 : avant la chasse, ワケ dit le niveau conseillé quand le 渡り n'y est pas encore. */
+export function recHint(q: QuestDef): string {
+  const lvl = Field.field().lvl;
+  DIALOGUES['wake:rec'] = [
+    {
+      who: 'wake',
+      fr: `Prudence. Pour cette distorsion, je conseillerais le niveau ${q.rec}, et tu es au ${lvl}. On peut y aller quand même : ce sera plus dur, avec moins de PV et moins de temps. Sinon, les herbes de 薄野原 t’attendent.`,
+    },
+  ];
+  return 'wake:rec';
+}
+
 /** Dialogue d'une seule réplique de ワケ, fabriqué à la demande. */
 export function wakeHint(q: QuestDef): string {
   DIALOGUES['wake:hint'] = [{ who: 'wake', fr: hintText(q) }];
@@ -209,9 +223,11 @@ export function hud(): Hud[] {
     const st = stateOf(q)!;
     const heard = (n: string) => st.heard.includes(n);
     const m = missing(q);
+    const lvl = Field.field().lvl;
     const rows = [
       { label: `Témoins : ${[q.giver, ...q.witnesses].map((n) => (n === q.giver || heard(n) ? '✓' : '・') + (NAMES[n] ?? n)).join('　')}`, done: !m.length, now: !!m.length },
       { label: `Finir sa phrase : ${q.siteFr}`, done: st.step === 'report', now: !m.length && st.step !== 'report' },
+      { label: `推奨 Lv ${q.rec} · ton 渡り : Lv ${lvl}${lvl < q.rec ? ' (plus dur)' : ''}`, done: lvl >= q.rec || st.step === 'report', now: false },
       { label: `Rapporter à ${NAMES[q.giver]}`, done: false, now: st.step === 'report' },
     ];
     return { title: q.title, reading: q.reading, fr: q.fr, side: !!q.side, rows };

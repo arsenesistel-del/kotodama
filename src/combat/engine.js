@@ -189,15 +189,19 @@ const STAGES = [
   { id: 'ou', name: '歪みの王', fr: 'Le roi des distorsions', hint: 'tout le sabre de l\'avis', keys: ALLKEYS, forms: ['aff', 'neg', 'past'], hp: 300, timer: 10, hue: 2, glyphs: '歪王だなかった' }
 ];
 // Chasses des contrats du chapitre 1 (src/world/quests.ts) : la créature de la v4 (`art`), la fin que le village a perdue.
+// Session 12 : chaque boss suit le tableau des niveaux un cran au-dessus de son niveau conseillé (`rec` dans quests.ts),
+// comme un examen. Conseillé 3 et 5 → présent et négatif ; 6, 8 et 9 → passé, négatif passé et négatif, 11 s ;
+// les phrases déformées (祓, `broken`) seulement au niveau 10 (迷い, conseillé 9, et 霧の主), et les phrases
+// seulement entendues (`listen`) pour 霧の主, le haut de la tranche.
 const CONTRACT_STAGES = [
-  { id: 'c-kake', art: 'kake', lvl: 0, name: '欠けの影', fr: 'L\'ombre du manque', hint: 'と思う : un avis', keys: ['omou.na', 'omou.no', 'omou.ia', 'omou.ve'], forms: ['aff', 'aff', 'neg', 'past'], hp: 140, timer: 14, hue: 188, glyphs: 'と思う欠影' },
-  { id: 'c-yuragi', art: 'yuragi', lvl: 1, name: '揺らぎ', fr: 'Le vacillement', hint: 'そうです : ce qu\'on t\'a dit', keys: ['souda.na', 'souda.no', 'souda.ia', 'souda.ve'], forms: ['aff', 'aff', 'neg', 'past'], hp: 160, timer: 13, hue: 268, glyphs: 'そうだ揺' },
-  { id: 'c-kuzure', art: 'kuzure', lvl: 2, name: '崩れ', fr: 'L\'effondrement', hint: 'かもしれない : un doute, sans だ', keys: ['kamo.na', 'kamo.no', 'kamo.ia', 'kamo.ve', 'omou.na'], forms: ['aff', 'aff', 'neg', 'past'], hp: 170, timer: 13, hue: 28, glyphs: 'かもしれ崩' },
+  { id: 'c-kake', art: 'kake', lvl: 0, name: '欠けの影', fr: 'L\'ombre du manque', hint: 'と思う : un avis', keys: ['omou.na', 'omou.no', 'omou.ia', 'omou.ve'], forms: ['aff', 'aff', 'neg'], hp: 340, timer: 13, hue: 188, glyphs: 'と思う欠影' },
+  { id: 'c-yuragi', art: 'yuragi', lvl: 1, name: '揺らぎ', fr: 'Le vacillement', hint: 'そうです : ce qu\'on t\'a dit', keys: ['souda.na', 'souda.no', 'souda.ia', 'souda.ve'], forms: ['aff', 'neg'], hp: 420, timer: 13, hue: 268, glyphs: 'そうだ揺' },
+  { id: 'c-kuzure', art: 'kuzure', lvl: 2, name: '崩れ', fr: 'L\'effondrement', hint: 'かもしれない : un doute, sans だ', keys: ['kamo.na', 'kamo.no', 'kamo.ia', 'kamo.ve', 'omou.na'], forms: ['past', 'negpast', 'neg'], hp: 500, timer: 11, hue: 28, glyphs: 'かもしれ崩' },
   // Contrats de révision, tirés des rumeurs : ils mélangent les fins déjà rendues au village.
-  { id: 'c-tsubu', art: 'tsubu', lvl: 1, name: '呟き', fr: 'Le marmonnement', hint: 'révision : と思う (un avis) ou そうです (un on-dit)', keys: ['omou.na', 'omou.no', 'omou.ia', 'omou.ve', 'souda.na', 'souda.no', 'souda.ia', 'souda.ve'], forms: ['aff', 'aff', 'neg', 'past'], hp: 130, timer: 13, hue: 200, glyphs: 'と思うそうだ呟' },
-  { id: 'c-mayoi', art: 'mayoi', lvl: 2, name: '迷い', fr: 'L\'hésitation', hint: 'révision : と思う, そうです, かもしれない', keys: ['omou.na', 'omou.ia', 'omou.ve', 'souda.no', 'souda.ia', 'souda.ve', 'kamo.na', 'kamo.no', 'kamo.ia', 'kamo.ve'], forms: ['aff', 'aff', 'neg', 'past'], hp: 150, timer: 12, hue: 40, glyphs: 'かも思そう迷' },
+  { id: 'c-tsubu', art: 'tsubu', lvl: 1, name: '呟き', fr: 'Le marmonnement', hint: 'révision : と思う (un avis) ou そうです (un on-dit)', keys: ['omou.na', 'omou.no', 'omou.ia', 'omou.ve', 'souda.na', 'souda.no', 'souda.ia', 'souda.ve'], forms: ['neg', 'past', 'negpast'], hp: 340, timer: 11, hue: 200, glyphs: 'と思うそうだ呟' },
+  { id: 'c-mayoi', art: 'mayoi', lvl: 2, name: '迷い', fr: 'L\'hésitation', hint: 'révision : と思う, そうです, かもしれない', keys: ['omou.na', 'omou.ia', 'omou.ve', 'souda.no', 'souda.ia', 'souda.ve', 'kamo.na', 'kamo.no', 'kamo.ia', 'kamo.ve'], forms: ['past', 'negpast', 'neg'], hp: 420, timer: 11, hue: 40, glyphs: 'かも思そう迷', broken: true },
   // Le cœur de la brume : le boss du chapitre mêle les quatre fins, comme un examen.
-  { id: 'c-kiri', art: 'kiri', lvl: 4, boss: true, name: '霧の主', fr: 'Le seigneur de la brume', hint: 'les quatre fins mêlées : と思う, かもしれない, そうです, んです', keys: ALLKEYS, forms: ['aff', 'aff', 'neg', 'past'], hp: 260, timer: 11, hue: 210, glyphs: '霧主思かもそうん' }
+  { id: 'c-kiri', art: 'kiri', lvl: 4, boss: true, name: '霧の主', fr: 'Le seigneur de la brume', hint: 'les quatre fins mêlées : と思う, かもしれない, そうです, んです', keys: ALLKEYS, forms: ['aff', 'neg', 'past', 'negpast'], hp: 660, timer: 11, hue: 210, glyphs: '霧主思かもそうん', broken: true, listen: true }
 ];
 function nextItem(stage, stats, last) {
   const w = { neuf: 3, essai: 3, casse: 4, lent: 2, reflexe: 1 };

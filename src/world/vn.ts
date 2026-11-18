@@ -21,6 +21,7 @@ import * as Progress from './progress';
 import * as Record from './record';
 import * as FieldUi from './fieldui';
 import * as Field from './field';
+import * as Craft from './craft';
 import { newGame, replaceWorld, saveWorld, world, type WorldSave } from './state';
 import { entryOf, parse, plain, tokenize, type Token } from './text';
 
@@ -1020,9 +1021,10 @@ function askNewGame(): void {
   const b = $('.p-menu [data-a="newgame"]');
   if (Date.now() - armedNew > 4000) {
     armedNew = Date.now();
-    b.innerHTML = 'はじめから<small>sûr ? clique encore : le monde repart du col (tes mots et ta progression restent)</small>';
+    b.innerHTML = 'はじめから<small>sûr ? clique encore : le monde repart du col et le 渡り du niveau 1 (tes mots, ta progression et le 図鑑 restent)</small>';
     return;
   }
+  Field.newRun();
   newGame();
   location.reload();
 }
@@ -1044,6 +1046,14 @@ function act(a: string): void {
     $('.zukan').scrollTop = 0;
   } else if (a === 'bell') {
     Field.toggleBell();
+    $('.bag').innerHTML = FieldUi.renderBag();
+    hooks.bell?.();
+  } else if (a.startsWith('eat:') || a === 'yobi') {
+    // Session 12 : manger un dango, ou poser le 呼び札, depuis le 持ち物.
+    const was = Field.field().hp;
+    if (a === 'yobi') {
+      if (Craft.useYobi()) toast('呼び札 <small>les dix rencontres suivantes : une variante 朱 sur quatre</small>');
+    } else if (Craft.eat(a.slice(4) as 'mitarashi' | 'sanshoku')) toast(`${Craft.recipeById(a.slice(4))!.name} <small>PV ${was} → ${Field.field().hp}</small>`);
     $('.bag').innerHTML = FieldUi.renderBag();
     hooks.bell?.();
   }

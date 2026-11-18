@@ -3,6 +3,7 @@
 // Aussi les réglages du combat, passés du repaire (retiré) à 設定 : lectures et effets sonores.
 import { ASSETS } from '../combat/assets';
 import * as Field from './field';
+import * as Craft from './craft';
 import * as Progress from './progress';
 import { finalLine, questById, type QuestState } from './quests';
 import { world } from './state';
@@ -43,23 +44,55 @@ const sec = (n: number) => n.toFixed(1).replace('.', ',');
 export function renderBag(): string {
   const f = Field.field();
   const need = Field.xpToNext(f.lvl);
-  const pips = Array.from({ length: Field.maxHp(f.lvl) }, (_, i) => `<i class="${i < f.hp ? 'on' : ''}"></i>`).join('');
+  const pips = Array.from({ length: Field.hpMax() }, (_, i) => `<i class="${i < f.hp ? 'on' : ''}"></i>`).join('');
+  const c = world().clock;
+  const hm = (x: number) => (x >= 3600 ? `${Math.floor(x / 3600)} h ${String(Math.floor((x % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(x / 60)} min`);
   const me = `<div class="me"><b>渡り</b><span class="lv">Lv ${f.lvl}</span><span class="hp">${pips}</span>
     <div class="xp"><i style="transform:scaleX(${Math.min(1, f.xp / need)})"></i></div>
-    <small>経験 ${f.xp} / ${need} · PV ${f.hp}/${Field.maxHp(f.lvl)} · temps de réponse +${sec(Field.timeBonus(f.lvl))} s · ${f.wins} bête${f.wins > 1 ? 's' : ''} apaisée${f.wins > 1 ? 's' : ''}</small>
-    <small>Le niveau donne des PV et un peu de temps. Il ne dit jamais la phrase à ta place.</small></div>`;
+    <small>経験 ${f.xp} / ${need} · PV ${f.hp}/${Field.hpMax()} · temps de réponse +${sec(Field.timeNow())} s · coup critique avant ${sec((3500 + Field.critBonus()) / 1000)} s · ${f.wins} bête${f.wins > 1 ? 's' : ''} apaisée${f.wins > 1 ? 's' : ''}${f.chain > 1 ? ` · 連鎖 ${f.chain}` : ''}</small>
+    <small>Le niveau donne des PV et un peu de temps. Il ne dit jamais la phrase à ta place.</small>
+    ${c ? `<small>Temps de jeu de cette partie : ${hm(c.all)}, dont ${hm(c.field)} dans les herbes et ${hm(c.boss)} contre les distorsions.</small>` : ''}
+    ${c && Object.keys(c.steps).length ? `<small>Par étape : ${Object.entries(c.steps).map(([k, v]) => `${k === 'fin' ? 'après le chapitre' : k === 'start' ? 'arrivée' : k} ${hm(v)}`).join(' · ')}</small>` : ''}</div>`;
   const mats = Field.MAT_ORDER.map((m) => {
     const n = f.bag[m] ?? 0, d = Field.MATS[m];
     return `<div class="mat${n ? '' : ' none'}${d.tier === 2 ? ' rare' : ''}"><b><ruby>${d.name}<rt>${d.reading}</rt></ruby></b><span>×${n}</span><small>${n ? d.fr : '…'}</small></div>`;
   }).join('');
   const fr = frags();
+  // Session 12 : ce que おみつ et 萬作 ont fait, et ce qu'ils savent faire.
+  const it = f.items;
+  const carry = (['mitarashi', 'sanshoku', 'mamori', 'yobi'] as Field.Item[])
+    .filter((k) => (it[k] ?? 0) > 0)
+    .map((k) => {
+      const r = Craft.recipeById(k)!;
+      const btn =
+        r.kind === 'dango'
+          ? `<button data-a="eat:${k}"${f.hp >= Field.hpMax() ? ' disabled' : ''}>食べる · manger</button>`
+          : k === 'yobi'
+            ? `<button data-a="yobi"${f.lure > 0 ? ' disabled' : ''}>使う · utiliser</button>`
+            : '';
+      return `<div class="item"><b>${r.name}</b><span class="n">×${it[k]}</span><small>${r.fr}${k === 'yobi' && f.lure > 0 ? ` En ce moment : encore ${f.lure} rencontres.` : ''}</small>${btn}</div>`;
+    })
+    .join('');
+  const parts = (Object.keys(Field.PART_FX) as Field.Part[])
+    .filter((p) => f.parts[p])
+    .map((p) => `<span class="part">${Craft.recipeById(p)!.name}</span>`)
+    .join('');
+  const sheets = (['omitsu', 'mansaku'] as Craft.Maker[])
+    .filter((m) => m === 'omitsu' || Craft.mansakuOpen())
+    .map((m) => {
+      const rows = Craft.sheet(m)
+        .map((r) => `<li class="${r.ok ? 'ok' : ''}${r.have === '済' ? ' done' : ''}"><b>${r.name}</b>${r.have ? `<i>${r.have}</i>` : ''} <span>${r.cost.map((x) => `<u class="${x.have >= x.need ? '' : 'short'}">${x.mat} ${x.have}/${x.need}</u>`).join(' ')}</span><small>${r.fr}</small></li>`)
+        .join('');
+      return `<div class="recipes"><em>${m === 'omitsu' ? 'おみつ · salon de thé, à emporter' : '萬作 · atelier (parle-lui au village)'}</em><ul>${rows}</ul></div>`;
+    })
+    .join('');
   const items = [
     f.hasBell
       ? `<div class="item"><b>鈴</b><small>La clochette du 地蔵 de 薄野原. Tant qu’elle tinte, les 言蟲 s’écartent. Touche <kbd>X</kbd>.</small><button data-a="bell" class="${f.bell ? 'on' : ''}">${f.bell ? '止める · ranger' : '鳴らす · faire tinter'}</button></div>`
       : '',
     fr ? `<div class="item"><b>欠片</b><small>Fragments des distorsions apaisées : ${fr}. Ils serviront à la forge, au 鍛冶谷.</small></div>` : '',
   ].join('');
-  return `${me}<h3>素材 <small>matériaux · bientôt chez おみつ et 萬作</small></h3><div class="mats">${mats}</div>${items ? `<h3>大事なもの <small>objets</small></h3>${items}` : ''}`;
+  return `${me}${carry ? `<h3>道具 <small>à emporter · touche C pour un dango dans les herbes</small></h3>${carry}` : ''}${parts ? `<h3>刀 <small>pièces posées par 萬作</small></h3><div class="parts">${parts}</div>` : ''}<h3>素材 <small>matériaux</small></h3><div class="mats">${mats}</div><h3>注文 <small>ce qu’on peut faire faire</small></h3>${sheets}${items ? `<h3>大事なもの <small>objets</small></h3>${items}` : ''}`;
 }
 
 // Les distorsions de l'histoire : la créature v4 (ou nouvelle) et le contrat où on la rencontre.

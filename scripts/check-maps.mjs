@@ -66,6 +66,29 @@ for (const [id, def] of Object.entries(M.MAPS)) {
       if (!(def.zones ?? []).some((z) => x >= z.rect[0] && x <= z.rect[2] && y >= z.rect[1] && y <= z.rect[3])) fail(`${id} : herbes hautes hors zone en ${x},${y}`);
     }
   for (const z of def.zones ?? []) if (z.lv[0] < 1 || z.lv[1] > 10 || z.lv[0] > z.lv[1]) fail(`${id} : zone « ${z.name} » hors de la tranche 1 à 10`);
+  // Session 12 : la brume du fond de 薄野原 ferme vraiment les zones de niveau 6 et plus, et rien d'autre.
+  if (def.zones && def.barriers?.length) {
+    const wall = new Set(def.barriers.flatMap((b) => b.cells.map(([x, y]) => `${x},${y}`)));
+    const closed = new Uint8Array(W * H);
+    const q2 = [[Math.floor(s0.x), Math.floor(s0.y - 0.2)]];
+    closed[q2[0][1] * W + q2[0][0]] = 1;
+    while (q2.length) {
+      const [x, y] = q2.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const X = x + dx, Y = y + dy;
+        if (solid(X, Y) || closed[Y * W + X] || wall.has(`${X},${Y}`)) continue;
+        closed[Y * W + X] = 1;
+        q2.push([X, Y]);
+      }
+    }
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        if (!built.grass[y * W + x]) continue;
+        const z = def.zones.find((z) => x >= z.rect[0] && x <= z.rect[2] && y >= z.rect[1] && y <= z.rect[3]);
+        if (z && z.lv[0] >= 6 && closed[y * W + x]) fail(`${id} : la brume laisse passer vers ${z.name} (${x},${y})`);
+        if (z && z.lv[0] < 6 && !closed[y * W + x]) fail(`${id} : la brume coupe ${z.name} (${x},${y})`);
+      }
+  }
   for (const e of def.exits) if (e.place && !M.MAPS[e.place]) fail(`${id} : la sortie ${e.side} mène à ${e.place}, qui n'existe pas`);
   for (const e of def.exits) if (e.place && !M.MAPS[e.place].spawns[e.gate]) fail(`${id} : la sortie ${e.side} arrive par « ${e.gate} », absent de ${e.place}`);
 
