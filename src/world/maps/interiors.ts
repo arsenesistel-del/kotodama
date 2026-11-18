@@ -137,7 +137,6 @@ export const MILL_IN = room({
   objects: [
     { o: OBJ.shelf, x: 1, y: 1 },
     { o: OBJ.drawing, x: 9, y: 1, id: 'drawing' },
-    { o: OBJ.chute, x: 4, y: 2 },
     { o: OBJ.millstone, x: 5, y: 2, id: 'stone' },
     { o: OBJ.tawara, x: 1, y: 2 },
     { o: OBJ.tawara, x: 2, y: 2 },

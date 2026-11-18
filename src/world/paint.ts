@@ -190,7 +190,8 @@ def('p-tawara', 16, 16, (p) => {
 });
 def('p-sack', 16, 16, (p) => {
   // Sac de farine, noué.
-  p.disc('ink', 8, 10, 6, 5).disc('pa', 8, 10, 5, 4).f('l1', 4, 12, 8, 2).f('ink', 7, 3, 2, 3).f('w2', 6, 4, 4, 1);
+  p.disc('ink', 8, 10, 6, 5).disc('l0', 8, 10, 5, 4).f('l1', 5, 8, 4, 2).f('w4', 4, 12, 8, 2).f('ink', 7, 3, 2, 3).f('w1', 6, 4, 4, 1);
+  for (let i = 0; i < 5; i++) p.f('w4', 4 + Math.floor(p.r() * 8), 7 + Math.floor(p.r() * 6));
 });
 def('p-kamado', 32, 24, (p) => {
   // Fourneau de terre (かまど) à deux feux, une marmite noire, la gueule rougeoyante.

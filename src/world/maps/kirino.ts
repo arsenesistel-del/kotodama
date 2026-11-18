@@ -41,7 +41,7 @@ function terrain(): string[][] {
   fill('d', 10, 15, 11, 24); // descente vers le moulin
   fill('d', 12, 24, 17, 24); // devant le moulin, au bord de l'eau
   // Session 11 : le bief, un bras d'eau tiré de la rivière, où tourne la roue du moulin.
-  fill('w', 18, 22, 20, 24);
+  fill('w', 18, 21, 20, 24);
   // Le chemin du sanctuaire et la berge, du pont de bois au pont suspendu.
   fill('d', 33, 22, 33, 23);
   fill('d', 25, 24, 38, 24);
@@ -189,7 +189,7 @@ export const KIRINO: MapDef = {
     { sprite: 'actors/chicken', x: 13.5, y: 16.5, kind: 'peck', area: [12, 15, 17, 19] },
     { sprite: 'actors/chicken', x: 15.5, y: 18.5, kind: 'peck', area: [12, 15, 17, 19] },
     { sprite: 'actors/chicken2', x: 16.5, y: 16.5, kind: 'peck', area: [12, 15, 17, 19] },
-    { sprite: 'actors/cat', x: 31.6, y: 10, kind: 'nap' },
+    { sprite: 'actors/cat', x: 32.6, y: 9.3, kind: 'nap' },
   ],
   rumors: [{ at: [20.5, 14.5], r: 3.2, who: ['oharu', 'mokichi'], ids: ['gossip:1', 'gossip:2', 'gossip:3'] }],
   exits: [

@@ -17,6 +17,7 @@ import { paintTextures } from '../world/paint';
 import { DIALOGUES } from '../world/dialogue';
 import * as Voice from '../world/voice';
 
+let lastPlace = ''; // lieu de la dernière arrivée (un combat ne fait pas changer de lieu)
 const WALK = 72; // px par seconde
 const RUN = 118;
 const BODY = { w: 10, h: 6 }; // boîte de collision, aux pieds
@@ -155,7 +156,9 @@ export class VillageScene extends Phaser.Scene {
     this.cameras.main.fadeIn(600, 5, 5, 5);
     const prologue = this.def.id === 'pass' && !save.flags.prologue;
     // Le titre du lieu : à chaque arrivée dehors, une fois seulement pour un intérieur.
-    if (!prologue && (!this.def.interior || !save.seen['place:' + this.def.id])) UI.placeCard(this.def.name, this.def.fr, this.def.interior ? '家' : '霧');
+    // Pas de titre au retour d'un combat dans les herbes (on n'a pas changé de lieu).
+    if (!prologue && lastPlace !== this.def.id && (!this.def.interior || !save.seen['place:' + this.def.id])) UI.placeCard(this.def.name, this.def.fr, this.def.interior ? '家' : '霧');
+    lastPlace = this.def.id;
     save.seen['place:' + this.def.id] = true;
     if (!save.hints && !prologue) {
       UI.hint(
@@ -232,7 +235,7 @@ export class VillageScene extends Phaser.Scene {
       field: () => JSON.parse(JSON.stringify(Field.field())),
       grass: () => ({ cell: this.cell, inGrass: this.inGrass(), zone: this.zoneHere()?.name ?? null, bell: Field.field().bell }),
       meet: () => (this.forceNext = true),
-      fight: (sp = 'tsubuyaki', lvl = 1, rare = false) => this.encounter({ sp, lvl, rare }),
+      fight: (sp = 'tsubuyaki', lvl = 1, rare = false, zone?: string) => this.encounter({ sp, lvl, rare, zone: zone ?? this.zoneHere()?.name }),
       bell: (on?: boolean) => this.ringBell(on),
     };
   }
@@ -852,7 +855,7 @@ export class VillageScene extends Phaser.Scene {
     const home = this.npc('mansaku')?.def;
     // おみつ sort de son salon de thé pour l'occasion, puis y rentre.
     this.cameo('omitsu', 27.5, 10, 'down');
-    this.place('mansaku', 30.5, 10.6, 'left');
+    this.place('mansaku', 31.5, 10.8, 'left');
     await this.wait(900);
     if (fromNorth) {
       await this.walk('player', [[23.5, 8.6], [24.5, 10.6]]);
@@ -909,7 +912,7 @@ export class VillageScene extends Phaser.Scene {
     save.flags.ch1 = true;
     saveWorld();
     this.cameo('omitsu', 27.5, 10, 'right');
-    this.place('mansaku', 30.5, 10.6, 'left');
+    this.place('mansaku', 31.5, 10.8, 'left');
     this.place('taichi', 28.5, 12.4, 'up');
     this.place('player', 24.5, 10.6, 'right');
     this.turn('omitsu', 'right');
@@ -1225,12 +1228,16 @@ export class VillageScene extends Phaser.Scene {
     if (this.def.interior) return;
     // Rides sur l'eau, là où il y a de l'eau, et à la roue du moulin.
     const water: [number, number][] = [];
-    for (let y = 0; y < this.def.height; y++) for (let x = 0; x < this.def.width; x++) if (this.def.terrain[y][x] === 'w' && this.def.terrain[y - 1]?.[x] === 'w' && this.def.terrain[y + 1]?.[x] === 'w') water.push([x, y]);
+    // Seulement au milieu de l'eau (pas sous les ponts ni contre les berges), et sur place : elles ne dérivent pas.
+    const t = this.def.terrain, W = this.def.width;
+    const open = (x: number, y: number) => t[y]?.[x] === 'w' && !this.built.grids.below[y]?.[x];
+    for (let y = 0; y < this.def.height; y++)
+      for (let x = 1; x < W - 1; x++) if ([[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]].every(([dx, dy]) => open(x + dx, y + dy))) water.push([x, y]);
     for (let i = 0; i < Math.min(14, water.length); i++) {
       const [x, y] = water[Math.floor(Math.random() * water.length)];
       const r = this.add.sprite(x * TILE, y * TILE, 'tiles/ripples').setOrigin(0).setDepth(DEPTH.ground + 0.6).setAlpha(0.8);
       if (this.anims.exists('ripple')) r.play({ key: 'ripple', startFrame: Math.floor(Math.random() * 4) });
-      this.tweens.add({ targets: r, x: r.x + 24, duration: 6000 + Math.random() * 4000, repeat: -1, onRepeat: () => r.setX(x * TILE) });
+      this.tweens.add({ targets: r, alpha: 0.35, duration: 1800 + Math.random() * 1500, yoyo: true, repeat: -1 });
     }
     // Des feuilles d'automne tombent des arbres du village (pas des forêts du bord).
     const trees = this.def.objects.filter((o) => o.o.w === 2 && o.o.h === 2 && o.o.tile(0, 0) && !o.id);
