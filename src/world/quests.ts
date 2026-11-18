@@ -77,6 +77,8 @@ export const missing = (q: QuestDef): string[] => q.witnesses.filter((w) => !sta
 export interface Plan {
   ids: string[]; // dialogues à jouer à la suite
   after?: () => void; // ce qui change une fois qu'ils sont finis
+  ordinary?: boolean; // rien de neuf sur les contrats : la scène peut proposer autre chose (quêtes de chasse, commande au 茶屋)
+  hint?: string; // ワケ rappelle où en est le contrat de ce PNJ
 }
 
 /** Réplique ordinaire d'un PNJ : la première rencontre, la courte, ou celle d'après son dernier contrat. */
@@ -119,7 +121,7 @@ export function talkPlan(npc: string): Plan {
   }
   // Rien de nouveau : sa réplique ordinaire, et si c'est lui qui a donné un contrat en cours, ワケ rappelle où aller.
   const mine = list.find((q) => q.giver === npc && stateOf(q) && ['given', 'hunt'].includes(stateOf(q)!.step));
-  return { ids: mine ? [base, wakeHint(mine)] : [base] };
+  return { ids: mine ? [base, wakeHint(mine)] : [base], ordinary: true, hint: mine ? 'wake:hint' : undefined };
 }
 
 export function accept(q: QuestDef): void {

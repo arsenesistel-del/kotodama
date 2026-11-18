@@ -7,7 +7,7 @@ const store = new Map();
 globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
 
 const { module: X } = await runnerImport('/scripts/field-entry.ts');
-const { F, S, M } = X;
+const { F, S, M, H, D } = X;
 const E = await import('../src/combat/engine.js');
 
 let fails = 0;
@@ -89,8 +89,49 @@ eq(F.toggleBell(true), false, 'pas de clochette sans l’avoir trouvée');
 F.giveBell();
 eq(F.toggleBell(true), true, 'clochette qui tinte');
 
+// Les quêtes de chasse (session 11) : seules comptent la bonne bête, dans la bonne zone, apaisée après la demande.
+F.resetField();
+const wh = S.world();
+wh.quests = {};
+wh.hunts = {};
+wh.seen = {};
+eq(H.talkPlan('gonbei'), null, 'quête du 権兵衛 avant le moulin');
+wh.quests.c1 = { step: 'done', heard: [] };
+for (const h of H.HUNTS) {
+  if (h.sp && !F.speciesById(h.sp)) fail(`quête ${h.id} : espèce inconnue ${h.sp}`);
+  if (h.zone && !M.MAPS.susuki.zones.some((z) => z.name === h.zone)) fail(`quête ${h.id} : zone inconnue ${h.zone}`);
+}
+const hz = M.MAPS.susuki.zones.find((z) => z.name === '野原の入口');
+F.calm({ sp: 'uwasadori', lvl: 2, rare: false, zone: hz.name }, { crits: 0, clean: true, hard: 0, hp: 5 }); // avant la demande : ne compte pas
+const give = H.talkPlan('gonbei');
+eq(give?.ids, ['h2:give'], 'la demande du 権兵衛');
+give.after();
+const h2 = H.huntById('h2');
+eq(H.progress(h2), 0, 'une bête apaisée avant la demande');
+F.calm({ sp: 'tsubuyaki', lvl: 2, rare: false, zone: hz.name }, { crits: 0, clean: true, hard: 0, hp: 5 }); // mauvaise espèce
+F.calm({ sp: 'uwasadori', lvl: 5, rare: false, zone: '野原の中' }, { crits: 0, clean: true, hard: 0, hp: 5 }); // mauvaise zone
+eq(H.progress(h2), 0, 'mauvaise espèce ou mauvaise zone');
+eq(H.talkPlan('gonbei')?.ids, ['h2:wait'], 'pas fini : il redit sa demande');
+for (let i = 0; i < 3; i++) F.calm({ sp: 'uwasadori', lvl: 2, rare: false, zone: hz.name }, { crits: 0, clean: true, hard: 0, hp: 5 });
+eq(H.progress(h2), 3, 'trois oiseaux');
+eq(H.marker('gonbei'), '！', 'marqueur : rapport à faire');
+const kome = F.field().bag.kome ?? 0;
+const done = H.talkPlan('gonbei');
+eq(done?.ids, ['h2:done'], 'le compte rendu');
+done.after();
+eq((F.field().bag.kome ?? 0) - kome, 3, 'récompense en riz');
+eq(H.talkPlan('gonbei'), null, 'quête finie');
+// Matériaux : おたね prend ses cinq fils.
+const t = H.talkPlan('otane');
+t.after();
+F.field().bag.ito = 6;
+eq(H.ready(H.huntById('h3')), true, 'cinq fils dans le sac');
+H.talkPlan('otane').after();
+eq(F.field().bag.ito, 1, 'les fils sont donnés');
+for (const h of H.HUNTS) for (const k of ['give', 'wait', 'done']) if (!D.DIALOGUES[`${h.id}:${k}`]) fail(`quête ${h.id} : dialogue ${k} manquant`);
+
 if (fails) {
   console.error(`${fails} problème(s) dans les rencontres.`);
   process.exit(1);
 }
-console.log(`Rencontres vérifiées : niveaux 1 à 10, ${items} phrases de bêtes acceptées, expérience, butin, clochette.`);
+console.log(`Rencontres vérifiées : niveaux 1 à 10, ${items} phrases de bêtes acceptées, expérience, butin, clochette, quêtes de chasse.`);

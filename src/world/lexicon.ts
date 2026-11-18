@@ -431,3 +431,14 @@ export const LEX: Record<string, Entry> = {
   // la fin de la rumeur (le joueur la garde)
   そうだ: { pos: 'fin de phrase', fr: 'il paraît que… (ce qu’on t’a dit)', forms: ['そうです', 'そうよ'], note: 'forme simple + そうだ : 暮らしているそうだ' },
 };
+
+// Session 11 : les mots du village (quêtes de chasse, salon de thé, rumeurs, objets à lire). Un mot déjà connu reçoit
+// seulement ses nouvelles formes.
+import { LEX_VILLAGE } from './lexicon-village';
+for (const [k, e] of Object.entries(LEX_VILLAGE)) {
+  const cur = LEX[k];
+  if (cur) {
+    if (e.forms?.length) cur.forms = [...new Set([...(cur.forms ?? []), ...e.forms])];
+  }
+  else LEX[k] = e;
+}

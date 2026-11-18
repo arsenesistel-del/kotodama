@@ -11,7 +11,9 @@ export interface ObjDef {
   tile: (x: number, y: number) => number; // numéro global, 0 pour rien
   mask: string[];
   above: number;
-  sprite?: { key: string; frameW: number; frameH: number; frame: number; dx: number; dy: number };
+  // `frame` absent : une image peinte par le code (paint.ts), sans découpage.
+  sprite?: { key: string; frameW: number; frameH: number; frame?: number; dx: number; dy: number; anim?: string };
+  top?: boolean; // posé par-dessus un autre objet (calque « deco ») : un pot sur une table, l'épouvantail dans la rizière
 }
 
 export interface Placed {
@@ -35,6 +37,38 @@ export interface NpcDef {
   face: Dir;
 }
 
+/** Une porte : marcher dessus fait entrer dans un intérieur (`place`, par l'arrivée `gate`). */
+export interface Door {
+  x: number;
+  y: number;
+  place: string;
+  gate: string;
+  name: string; // nom du lieu, affiché à l'entrée
+}
+
+/**
+ * La vie du village (session 11) : des poules qui picorent, un chat qui dort, des figurants qui passent.
+ * `id` sert aux rumeurs ; `route` : le chemin d'un figurant (aller-retour), `area` : là où picore une poule.
+ */
+export interface Critter {
+  id?: string;
+  sprite: string;
+  x: number;
+  y: number;
+  kind: 'peck' | 'nap' | 'stroll' | 'stand';
+  face?: Dir;
+  area?: [number, number, number, number];
+  route?: [number, number][];
+}
+
+/** Une rumeur entendue en passant : deux figurants discutent quand on s'approche (bulles, sans arrêter le jeu). */
+export interface Rumor {
+  at: [number, number];
+  r: number;
+  who: [string, string]; // id des deux figurants (Critter.id), ou d'un PNJ
+  ids: string[]; // dialogues joués à tour de rôle (variante « :ep » après l'épilogue)
+}
+
 export interface MapDef {
   id: string;
   name: string;
@@ -42,7 +76,10 @@ export interface MapDef {
   fr: string;
   width: number;
   height: number;
-  terrain: string[][]; // « . » herbe, « d » chemin, « w » eau, « T » forêt, « g » herbes hautes (rencontres, session 10)
+  // « . » herbe, « d » chemin, « w » eau, « T » forêt, « g » herbes hautes (rencontres, session 10).
+  // Intérieurs (session 11), peints par le code : « F » plancher, « M » tatami, « E » terre battue (土間),
+  // « K » plancher sombre du sanctuaire, « W » mur du fond, « X » bord de mur (côtés, bas), « _ » rien (noir).
+  terrain: string[][];
   objects: Placed[];
   seed: number;
   music?: string;
@@ -57,4 +94,8 @@ export interface MapDef {
   zones?: import('./field').Zone[];
   npcs: NpcDef[];
   readables: Record<string, string>; // id d'objet → id de dialogue
+  doors?: Door[];
+  interior?: boolean; // un intérieur : pas de brume du dehors, caméra centrée, lumière chaude
+  critters?: Critter[];
+  rumors?: Rumor[];
 }

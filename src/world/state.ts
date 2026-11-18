@@ -17,6 +17,8 @@ export interface WorldSave {
   hunt?: string; // contrat dont la chasse est en cours
   after?: { quest: string; won: boolean; rank: string }; // résultat d'une chasse, à jouer au retour au village
   flags: Record<string, boolean>; // le fil du chapitre : prologue vu, ワケ libéré, épilogue joué (ch1)
+  hunts?: Record<string, import('./hunts').HuntState>; // quêtes de chasse des villageois (session 11)
+  count?: Record<string, number>; // compteurs du village : 絵馬 déjà lus, おみくじ tirées
 }
 
 // Une nouvelle partie commence au col, avant le village : c'est là que le prologue libère ワケ.

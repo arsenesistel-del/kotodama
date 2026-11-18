@@ -82,9 +82,10 @@ export interface FieldSave {
   hasBell: boolean;
   beasts: Record<string, Met>;
   wins: number;
+  tally: Record<string, number>; // bêtes apaisées par espèce et par zone (« uwasadori@野原の入口 ») : les quêtes de chasse
 }
 
-const fresh = (): FieldSave => ({ v: 1, lvl: 1, xp: 0, hp: maxHp(1), bag: {}, bell: false, hasBell: false, beasts: {}, wins: 0 });
+const fresh = (): FieldSave => ({ v: 1, lvl: 1, xp: 0, hp: maxHp(1), bag: {}, bell: false, hasBell: false, beasts: {}, wins: 0, tally: {} });
 let cache: FieldSave | null = null;
 
 export function field(): FieldSave {
@@ -176,6 +177,7 @@ export interface Beast {
   sp: string;
   lvl: number;
   rare: boolean;
+  zone?: string; // nom de la zone où elle a surgi (quêtes de chasse : « où »)
 }
 
 export interface Zone {
@@ -194,7 +196,7 @@ export function roll(zone: Zone, r: () => number = Math.random): Beast {
   const [a, b] = zone.lv;
   const rare = r() < 1 / 16;
   const lvl = Math.max(TRANCHE[0], Math.min(TRANCHE[1], a + Math.floor(r() * (b - a + 1)) + (rare ? 1 : 0)));
-  return { sp: sp.id, lvl, rare };
+  return { sp: sp.id, lvl, rare, zone: zone.name };
 }
 
 /** Chance de rencontre par case d'herbe haute traversée. */
@@ -275,6 +277,8 @@ export function calm(b: Beast, o: { crits: number; clean: boolean; hard: number;
   const m = f.beasts[b.sp];
   if (m) m.calmed++;
   f.wins++;
+  const k = `${b.sp}@${b.zone ?? ''}`;
+  f.tally[k] = (f.tally[k] ?? 0) + 1;
   f.hp = Math.max(1, o.hp);
   const got = loot(b, o.hard);
   for (const [k, n] of Object.entries(got)) f.bag[k as Mat] = (f.bag[k as Mat] ?? 0) + (n ?? 0);

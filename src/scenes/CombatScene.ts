@@ -32,8 +32,9 @@ export class CombatScene extends Phaser.Scene {
       if (d.enc) {
         // Rencontre : on reprend dans les herbes, à la même place. À bout de forces, ワケ ramène au village.
         if (d.down) {
-          w.place = 'kirino';
-          w.pos = { x: 27.5, y: 11.6, face: 'down' };
+          // Session 11 : on se réveille sur le futon de la pièce du fond, au salon de thé d'おみつ.
+          w.place = 'chaya';
+          w.pos = { x: 10.9, y: 5.7, face: 'down' };
           w.flags.downed = true;
         }
       } else w.after = { quest: this.quest, won: d.won, rank: d.rank };

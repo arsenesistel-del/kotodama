@@ -6,6 +6,7 @@
 // Les répliques guéries ont le droit d'employer leur fin perdue : voir HEALED.
 import type { Line } from './dialogue';
 import { STORY_HEALED } from './story-lines';
+import { VILLAGE_HEALED } from './village-lines';
 
 export const QUEST_SPEAKERS: Record<string, { name: string; face?: string }> = {
   kage: { name: '{欠|か}けの{影|かげ}' },
@@ -43,6 +44,7 @@ export const HEALED: Record<string, string[]> = {
   'c4:final': ['んじゃ'],
   'c4:report': ['かもしれ'],
   ...STORY_HEALED,
+  ...VILLAGE_HEALED,
 };
 
 /** Peinture affichée derrière un souvenir (src/assets/memory/). */

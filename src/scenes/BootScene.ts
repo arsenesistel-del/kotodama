@@ -25,6 +25,8 @@ export class BootScene extends Phaser.Scene {
     for (const [key, url] of Object.entries(WORLD)) {
       if (key.startsWith('audio/')) this.load.audio(key, url);
       else if (key === 'tiles/watermill') this.load.spritesheet(key, url, { frameWidth: 34, frameHeight: 36 });
+      else if (key === 'tiles/leaf') this.load.spritesheet(key, url, { frameWidth: 12, frameHeight: 7 });
+      else if (key === 'tiles/ripples') this.load.spritesheet(key, url, { frameWidth: 16, frameHeight: 16 });
       else if (key.startsWith('actors/') && !key.endsWith('_face')) this.load.spritesheet(key, url, { frameWidth: 16, frameHeight: 16 });
       else this.load.image(key, url);
     }

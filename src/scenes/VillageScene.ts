@@ -4,13 +4,18 @@ import { DIR_VEC, ensureAnims, faceToward, idleFrame } from '../world/actor';
 import { buildMap, type BuiltMap } from '../world/build';
 import { DEPTH, drawMap } from '../world/draw';
 import { SPEAKERS } from '../world/dialogue';
-import type { MapDef, NpcDef } from '../world/mapdef';
+import type { Critter, Door, MapDef, NpcDef } from '../world/mapdef';
 import { MAPS } from '../world/maps';
 import { saveWorld, world } from '../world/state';
 import * as UI from '../world/ui';
 import { hooks, maybeWeekly } from '../world/vn';
 import * as Quests from '../world/quests';
 import * as Field from '../world/field';
+import * as Hunts from '../world/hunts';
+import { nextRumor, readPlan } from '../world/examine';
+import { paintTextures } from '../world/paint';
+import { DIALOGUES } from '../world/dialogue';
+import * as Voice from '../world/voice';
 
 const WALK = 72; // px par seconde
 const RUN = 118;
@@ -20,6 +25,16 @@ interface Npc {
   def: NpcDef;
   sprite: Phaser.GameObjects.Sprite;
   home: Dir;
+  cameo?: boolean; // venu le temps d'une cinématique (おみつ devant son salon de thé)
+}
+
+/** Une bête ou un figurant du village (session 11). */
+interface Crit {
+  def: Critter;
+  sprite: Phaser.GameObjects.Sprite;
+  goal: { x: number; y: number } | null;
+  wait: number;
+  t: number;
 }
 
 type Keys = Record<'up' | 'down' | 'left' | 'right' | 'run', Phaser.Input.Keyboard.Key[]>;
@@ -36,7 +51,16 @@ export class VillageScene extends Phaser.Scene {
   private trail: { x: number; y: number }[] = [];
   private fog: Phaser.GameObjects.TileSprite[] = [];
   private river?: Phaser.Sound.BaseSound;
-  private target: { kind: 'npc' | 'read'; id: string } | null = null;
+  private target: { kind: 'npc' | 'read' | 'crit'; id: string } | null = null;
+  // Session 11 : la vie du village, les portes, le salon de thé.
+  private crits: Crit[] = [];
+  private doorMarks: { door: Door; img: Phaser.GameObjects.Image }[] = [];
+  private rumorOn = false;
+  private rumorAt = -1e9;
+  private rumorAway = true;
+  private bubbles: { el: HTMLElement; who: () => Phaser.GameObjects.Sprite | undefined }[] = [];
+  private pending: { heal?: boolean; rest?: boolean } = {};
+  private lookClock = 0;
   private leaving = false;
   private busy = false;
   private saveClock = 0;
@@ -67,7 +91,16 @@ export class VillageScene extends Phaser.Scene {
     this.cutting = false;
     this.blobs = [];
     this.barrierFog = [];
+    // Session 11 : sols, murs et meubles peints par le code, animations des bêtes et de l'eau.
+    paintTextures((k) => this.textures.exists(k), (k, c) => this.textures.addCanvas(k, c));
+    this.makeAnims();
     drawMap(this, this.built);
+    this.crits = [];
+    this.doorMarks = [];
+    this.bubbles = [];
+    this.pending = {};
+    this.rumorOn = false;
+    this.rumorAway = true;
     this.tufts.clear();
     this.cell = -1;
     this.grace = 3;
@@ -91,7 +124,9 @@ export class VillageScene extends Phaser.Scene {
     // Avant le prologue, ワケ est encore coincé dans la borne du col.
     this.wake.setVisible(!!save.flags.wake);
 
+    this.makeCritters();
     this.makeFog();
+    this.makeLife();
     this.setupCamera();
     this.setupInput();
     this.setupSound();
@@ -101,23 +136,27 @@ export class VillageScene extends Phaser.Scene {
     UI.showUi(true);
     UI.vignette(true);
     this.game.canvas.style.transition = '';
-    this.game.canvas.style.filter = this.healed() ? 'saturate(0.95) brightness(1) contrast(1.03)' : 'saturate(0.74) brightness(0.94) contrast(1.05)';
+    // Un intérieur a sa lumière chaude ; dehors, le village est terne tant que la brume tient.
+    this.game.canvas.style.filter = this.def.interior
+      ? 'saturate(0.92) sepia(0.06) brightness(1.02)'
+      : this.healed() ? 'saturate(0.95) brightness(1) contrast(1.03)' : 'saturate(0.74) brightness(0.94) contrast(1.05)';
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     hooks.beforeSave = () => this.storePos();
-    hooks.act = (a) => Quests.act(a);
+    hooks.act = (a) => this.onAct(a);
     hooks.bell = () => this.refreshField();
     const onBell = () => this.ringBell();
     window.addEventListener('kotodama:bell', onBell);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => window.removeEventListener('kotodama:bell', onBell));
     this.makeMarkers();
     this.refreshQuest();
-    // Au village, on reprend des forces (plus tard : les dango d'おみつ).
-    if (this.def.id === 'kirino') Field.heal();
+    // Session 11 : on reprend des forces au salon de thé (お茶, お団子), plus en entrant au village.
     this.refreshField();
 
     this.cameras.main.fadeIn(600, 5, 5, 5);
     const prologue = this.def.id === 'pass' && !save.flags.prologue;
-    if (!prologue) UI.placeCard(this.def.name, this.def.fr);
+    // Le titre du lieu : à chaque arrivée dehors, une fois seulement pour un intérieur.
+    if (!prologue && (!this.def.interior || !save.seen['place:' + this.def.id])) UI.placeCard(this.def.name, this.def.fr, this.def.interior ? '家' : '霧');
+    save.seen['place:' + this.def.id] = true;
     if (!save.hints && !prologue) {
       UI.hint(
         '<kbd>ZQSD</kbd> ou <kbd>↑←↓→</kbd> marcher · <kbd>Maj</kbd> courir<br><kbd>Espace</kbd> parler, lire · <kbd>T</kbd> ワケ traduit · clic sur un mot : son sens<br><kbd>A</kbd> オート · <kbd>Ctrl</kbd> スキップ · <kbd>B</kbd> バックログ · <kbd>Échap</kbd> メニュー · <kbd>M</kbd> son',
@@ -141,6 +180,8 @@ export class VillageScene extends Phaser.Scene {
       void this.prologue();
     } else if (save.flags.downed) {
       save.flags.downed = false;
+      Field.heal();
+      this.refreshField();
       saveWorld();
       this.busy = true;
       this.time.delayedCall(700, () => UI.openChain(['down:wake'], () => (this.busy = false)));
@@ -165,9 +206,21 @@ export class VillageScene extends Phaser.Scene {
       state: () => ({ x: this.player.x / TILE, y: this.player.y / TILE, face: this.face, target: this.target, dialog: UI.dialogOpen() }),
       talk: () => this.interact(),
       talkTo: (id: string) => {
-        this.target = { kind: this.npcs.some((n) => n.def.id === id) ? 'npc' : 'read', id };
+        this.target = { kind: this.npcs.some((n) => n.def.id === id) ? 'npc' : this.crits.some((c) => c.def.id === id) ? 'crit' : 'read', id };
         this.interact();
       },
+      // Session 11 : `KDW.enter('chaya')` entre par la porte d'un intérieur, `KDW.hunts()` l'état des quêtes de chasse,
+      // `KDW.place()` le lieu courant, `KDW.crits()` les bêtes et figurants, `KDW.rumor()` lance la rumeur du puits.
+      enter: (place: string) => {
+        const d = this.def.doors?.find((x) => x.place === place);
+        if (d) this.enterDoor(d);
+      },
+      place: () => this.def.id,
+      hunts: () => JSON.parse(JSON.stringify(world().hunts ?? {})),
+      huntHud: () => Hunts.hud(),
+      crits: () => this.crits.map((c) => ({ id: c.def.id, sprite: c.def.sprite, x: c.sprite.x / TILE, y: c.sprite.y / TILE })),
+      rumor: () => this.def.rumors?.[0] && this.playRumor(this.def.rumors[0]),
+      bubbles: () => this.bubbles.map((b) => b.el.textContent),
       quests: () => JSON.parse(JSON.stringify(world().quests)),
       flags: () => ({ ...world().flags }),
       busy: () => this.busy,
@@ -192,12 +245,27 @@ export class VillageScene extends Phaser.Scene {
     cam.setRoundPixels(true);
     const zoom = () => {
       const { width, height } = this.scale;
-      cam.setZoom(Phaser.Math.Clamp(Math.round(Math.min(width / (TILE * 22), height / (TILE * 13))), 2, 6));
+      // Un intérieur remplit l'écran (on voit toute la pièce) ; dehors, environ 22 × 13 cases.
+      const z = this.def.interior
+        ? Math.floor(Math.min(width / (TILE * (this.def.width + 1)), height / (TILE * (this.def.height + 3))))
+        : Math.round(Math.min(width / (TILE * 22), height / (TILE * 13)));
+      cam.setZoom(Phaser.Math.Clamp(z, 2, this.def.interior ? 7 : 6));
+      if (this.def.interior && this.player) this.frameRoom();
     };
     zoom();
     this.scale.on(Phaser.Scale.Events.RESIZE, zoom, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, zoom, this));
     cam.startFollow(this.player, true, 0.14, 0.14, 0, TILE / 2);
+    if (this.def.interior) this.frameRoom();
+  }
+
+  /** Un intérieur plus petit que l'écran : la pièce entière au centre, un peu haute pour laisser la place au dialogue. */
+  private frameRoom(): void {
+    const cam = this.cameras.main, w = this.def.width * TILE, h = this.def.height * TILE;
+    if (w > cam.width / cam.zoom || h > cam.height / cam.zoom) return;
+    cam.stopFollow();
+    cam.removeBounds();
+    cam.centerOn(w / 2, h / 2 + 40 / cam.zoom + TILE * 0.6);
   }
 
   private setupInput(): void {
@@ -337,10 +405,16 @@ export class VillageScene extends Phaser.Scene {
     for (const n of this.npcs) n.sprite.setDepth(DEPTH.actors + n.sprite.y * 1e-5);
     const bob = Math.round(Math.sin(this.time.now / 260) * 1.5);
     for (const n of this.npcs) this.marks.get(n.def.id)?.setPosition(n.sprite.x, n.sprite.y - 19 + bob);
+    for (const d of this.doorMarks) d.img.setY(d.door.y * TILE - 3 + bob);
 
     this.followWake(dt, moving);
+    this.updateCritters(dt);
+    this.updateBubbles();
     if (this.cutting) return;
     this.checkExit();
+    this.checkDoor();
+    this.checkRumor();
+    this.npcLook(dt);
     this.storyTriggers();
     this.grassStep(moving);
     this.updateTarget();
@@ -384,6 +458,11 @@ export class VillageScene extends Phaser.Scene {
       if (this.solidAt(px, py)) return true;
     for (const n of this.npcs) {
       const s = n.sprite;
+      if (Math.abs(s.x - x) < (BODY.w + 10) / 2 && y > s.y - 6 && y - BODY.h < s.y) return true;
+    }
+    for (const c of this.crits) {
+      if (c.def.kind !== 'stand') continue;
+      const s = c.sprite;
       if (Math.abs(s.x - x) < (BODY.w + 10) / 2 && y > s.y - 6 && y - BODY.h < s.y) return true;
     }
     return false;
@@ -433,6 +512,14 @@ export class VillageScene extends Phaser.Scene {
         best = { kind: 'npc', id: n.def.id };
       }
     }
+    for (const c of this.crits) {
+      if (!c.def.id) continue;
+      const d = Math.hypot(c.sprite.x - px, c.sprite.y - 4 - py);
+      if (d < bestD) {
+        bestD = d;
+        best = { kind: 'crit', id: c.def.id };
+      }
+    }
     if (!best) {
       const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
       for (const r of this.built.readables) if (r.cells.some(([x, y]) => x === tx && y === ty)) best = { kind: 'read', id: r.id };
@@ -440,6 +527,7 @@ export class VillageScene extends Phaser.Scene {
     this.target = best;
     if (!best) return UI.setPrompt(null);
     if (best.kind === 'npc') UI.setPrompt(`話す <small>${UI.plain(SPEAKERS[best.id]?.name ?? '')}</small>`);
+    else if (best.kind === 'crit') UI.setPrompt(`聞く <small>${UI.plain(SPEAKERS[best.id]?.name ?? '')} · écouter</small>`);
     else if (best.id.startsWith('site-') || Quests.QUESTS.some((q) => q.site === best!.id && Quests.active() === q)) UI.setPrompt('調べる <small>examiner</small>');
     else UI.setPrompt('読む <small>lire</small>');
   }
@@ -465,9 +553,21 @@ export class VillageScene extends Phaser.Scene {
       });
       return;
     }
+    if (t.kind === 'crit') {
+      // Un figurant : on écoute la rumeur du moment (avec la traduction de ワケ, comme un dialogue).
+      const r = this.def.rumors?.find((x) => x.who.includes(t.id));
+      if (!r) return;
+      this.busy = true;
+      this.clearBubbles();
+      UI.openChain([nextRumor(r.ids)], () => (this.busy = false));
+      return;
+    }
     if (t.kind === 'read') {
       // Un objet peut être le site d'un contrat : la créature s'y montre, on finit sa phrase, puis on chasse.
-      const plan = Quests.sitePlan(t.id, this.def.readables[t.id] ?? t.id);
+      // Sinon, son texte peut changer avec l'histoire (examine.ts).
+      const base = this.def.readables[t.id] ?? t.id;
+      const plan = Quests.sitePlan(t.id, base);
+      if (!plan.hunt && plan.ids.length === 1 && plan.ids[0] === base) plan.ids = readPlan(this.def.id, t.id, base);
       this.busy = true;
       UI.openChain(plan.ids, () => {
         this.busy = false;
@@ -482,15 +582,33 @@ export class VillageScene extends Phaser.Scene {
     n.sprite.setFrame(idleFrame(faceToward(this.player.x - n.sprite.x, this.player.y - n.sprite.y)));
     // Ce qu'il dit dépend des contrats : le donner, témoigner, recevoir le rapport, ou sa réplique ordinaire.
     const plan = Quests.talkPlan(t.id);
-    const accepting = plan.ids.some((i) => i.endsWith(':give'));
-    const reporting = plan.ids.some((i) => i.endsWith(':report'));
+    // Rien sur les contrats : une quête de chasse à donner ou à recevoir, ou, au salon de thé, la commande d'おみつ.
+    let hunt: Hunts.Plan | null = null;
+    if (plan.ordinary && world().seen['talk:' + t.id]) {
+      const hint = plan.hint ? [plan.hint] : [];
+      hunt = Hunts.talkPlan(t.id);
+      // Au salon de thé, おみつ prend toujours la commande (après avoir rappelé sa demande, s'il y en a une en cours).
+      const order = this.def.id === 'chaya' && t.id === 'omitsu' && (!hunt || hunt.ids[0].endsWith(':wait')) ? ['chaya:menu'] : [];
+      if (hunt) plan.ids = [...hunt.ids, ...order, ...hint];
+      else if (order.length) plan.ids = [...order, ...hint];
+    }
+    const accepting = !hunt && plan.ids.some((i) => i.endsWith(':give'));
+    const reporting = !hunt && plan.ids.some((i) => i.endsWith(':report'));
     this.busy = true;
+    this.pending = {};
     UI.openChain(plan.ids, () => {
       this.busy = false;
       this.time.delayedCall(400, () => n.sprite.setFrame(idleFrame(n.home)));
       world().seen['talk:' + t.id] = true;
       plan.after?.();
       saveWorld();
+      const got = hunt?.after?.();
+      if (got) {
+        if (got.card) UI.placeCard(...got.card);
+        if (got.toast) UI.toast(got.toast);
+        this.refreshField();
+      }
+      this.afterOrder();
       const q = Quests.questById(plan.ids.find((i) => Quests.RX_QUEST.test(i))?.split(':')[0] ?? '');
       if (accepting && q) UI.placeCard(q.title, `${q.side ? '小依頼' : '依頼'} · ${q.fr}`, '依');
       if (reporting && q) {
@@ -512,11 +630,16 @@ export class VillageScene extends Phaser.Scene {
 
   /** Encart du contrat, marqueurs au-dessus des PNJ, roue du moulin qui tourne une fois le premier contrat fini. */
   private refreshQuest(): void {
-    UI.questHud(Quests.hud());
+    UI.questHud([...Quests.hud(), ...Hunts.hud()]);
     for (const n of this.npcs) {
-      const m = Quests.marker(n.def.id);
+      const m = this.markerOf(n.def.id);
       const img = this.marks.get(n.def.id);
       if (img) img.setVisible(!!m).setTexture(m === '？' ? 'mark?' : 'mark!');
+    }
+    // Les portes : le marqueur de celui qui attend à l'intérieur (おみつ dans son salon de thé).
+    for (const d of this.doorMarks) {
+      const m = MAPS[d.door.place]?.npcs.map((n) => this.markerOf(n.id)).find(Boolean);
+      d.img.setVisible(!!m).setTexture(m === '？' ? 'mark?' : 'mark!');
     }
     const turning = world().quests.c1?.step === 'done';
     if (!this.anims.exists('wheel-turn')) this.anims.create({ key: 'wheel-turn', frames: this.anims.generateFrameNumbers('tiles/watermill', { start: 0, end: 2 }), frameRate: 6, repeat: -1 });
@@ -554,6 +677,8 @@ export class VillageScene extends Phaser.Scene {
     }
     this.marks.clear();
     for (const n of this.npcs) this.marks.set(n.def.id, this.add.image(n.sprite.x, n.sprite.y - 19, 'mark!').setOrigin(0.5, 1).setDepth(DEPTH.fog + 1).setVisible(false));
+    for (const d of this.def.doors ?? [])
+      this.doorMarks.push({ door: d, img: this.add.image((d.x + 0.5) * TILE, d.y * TILE - 3, 'mark!').setOrigin(0.5, 1).setDepth(DEPTH.fog + 1).setVisible(false) });
   }
 
   private startHunt(q: Quests.QuestDef): void {
@@ -725,6 +850,8 @@ export class VillageScene extends Phaser.Scene {
   private async arrival(fromNorth: boolean): Promise<void> {
     this.startCut();
     const home = this.npc('mansaku')?.def;
+    // おみつ sort de son salon de thé pour l'occasion, puis y rentre.
+    this.cameo('omitsu', 27.5, 10, 'down');
     this.place('mansaku', 30.5, 10.6, 'left');
     await this.wait(900);
     if (fromNorth) {
@@ -739,7 +866,8 @@ export class VillageScene extends Phaser.Scene {
     this.turn('omitsu', 'down');
     await this.pan(9, 12);
     await this.say('tour:house');
-    await this.pan(15, 21);
+    void this.walk('omitsu', [[27.5, 8.4]], 40).then(() => this.dropCameo('omitsu'));
+    await this.pan(16.5, 22.5);
     await this.say('tour:mill');
     await this.pan(40, 24.5);
     await this.say('tour:bridge');
@@ -780,6 +908,7 @@ export class VillageScene extends Phaser.Scene {
     const save = world();
     save.flags.ch1 = true;
     saveWorld();
+    this.cameo('omitsu', 27.5, 10, 'right');
     this.place('mansaku', 30.5, 10.6, 'left');
     this.place('taichi', 28.5, 12.4, 'up');
     this.place('player', 24.5, 10.6, 'right');
@@ -793,6 +922,7 @@ export class VillageScene extends Phaser.Scene {
     await this.say('ep:seal');
     await UI.chapterCard('第一章', '霧の村', 'Fin du premier chapitre', true, 6200);
     // Chacun rentre chez lui ; le sabreur reprend la main.
+    this.dropCameo('omitsu');
     for (const id of ['mansaku', 'taichi', 'omitsu']) {
       const n = this.npc(id);
       if (n) this.place(id, n.def.x, n.def.y, n.def.face);
@@ -954,9 +1084,308 @@ export class VillageScene extends Phaser.Scene {
 
   /** L'encart du 渡り : niveau, PV, clochette, zone et niveau des bêtes. Seulement là où il y a des herbes hautes. */
   private refreshField(): void {
-    if (!this.def.zones) return UI.fieldHud(null);
     const f = Field.field(), z = this.zoneHere();
+    // Dans le village aussi (session 11), dès qu'on a combattu : on voit ses PV et on sait quand passer au salon de thé.
+    if (!this.def.zones && (this.def.id === 'pass' || (!f.wins && !f.hasBell && f.hp >= Field.maxHp(f.lvl)))) return UI.fieldHud(null);
     UI.fieldHud({ lvl: f.lvl, hp: f.hp, max: Field.maxHp(f.lvl), xp: f.xp / Field.xpToNext(f.lvl), bell: f.hasBell ? f.bell : null, zone: z ? `${z.name} · Lv ${z.lv[0]}–${z.lv[1]}` : '' });
+  }
+
+  // ---------- le village vivant (session 11) ----------
+
+  private makeAnims(): void {
+    const mk = (key: string, tex: string, frames: number[], rate: number) => {
+      if (!this.anims.exists(key) && this.textures.exists(tex)) this.anims.create({ key, frames: frames.map((f) => ({ key: tex, frame: f })), frameRate: rate, repeat: -1 });
+    };
+    mk('ripple', 'tiles/ripples', [0, 1, 2, 3], 3);
+    mk('leaf', 'tiles/leaf', [0, 1, 2, 3, 4, 5], 6);
+  }
+
+  /** Poules, chat, figurants : posés d'après la carte (`critters`). */
+  private makeCritters(): void {
+    for (const def of this.def.critters ?? []) {
+      if (def.kind === 'stand') ensureAnims(this, def.sprite);
+      const frame = def.kind === 'stand' ? idleFrame(def.face ?? 'down') : 0;
+      const sprite = this.add.sprite(def.x * TILE, def.y * TILE, def.sprite, frame).setOrigin(0.5, 1);
+      this.crits.push({ def, sprite, goal: null, wait: Math.random() * 3, t: Math.random() * 2 });
+    }
+  }
+
+  private freeCell(x: number, y: number): boolean {
+    const tx = Math.floor(x / TILE), ty = Math.floor((y - 2) / TILE);
+    return tx >= 0 && ty >= 0 && tx < this.def.width && ty < this.def.height && !this.built.solid[ty * this.def.width + tx];
+  }
+
+  private updateCritters(dt: number): void {
+    const p = this.player;
+    for (const c of this.crits) {
+      const s = c.sprite;
+      c.t += dt;
+      s.setDepth(DEPTH.actors + s.y * 1e-5);
+      if (c.def.kind === 'nap') {
+        // Le chat respire, une oreille bouge de temps en temps.
+        s.setFrame(Math.floor(c.t / 1.7) % 2);
+        continue;
+      }
+      if (c.def.kind === 'stand') {
+        // Les commères se font face ; elles regardent le sabreur quand il s'approche.
+        const near = Math.hypot(p.x - s.x, p.y - s.y) < 26;
+        s.setFrame(idleFrame(near ? faceToward(p.x - s.x, p.y - s.y) : c.def.face ?? 'down'));
+        continue;
+      }
+      // Une poule : elle picore, fait quelques pas, s'écarte quand on arrive.
+      const dP = Math.hypot(p.x - s.x, p.y - s.y);
+      if (dP < 18 && (!c.goal || c.wait > 0)) {
+        const a = Math.atan2(s.y - p.y, s.x - p.x);
+        const g = { x: s.x + Math.cos(a) * 24, y: s.y + Math.sin(a) * 24 };
+        if (this.freeCell(g.x, g.y)) c.goal = g, c.wait = 0;
+      }
+      if (c.goal) {
+        const dx = c.goal.x - s.x, dy = c.goal.y - s.y, d = Math.hypot(dx, dy);
+        const sp = (dP < 18 ? 40 : 14) * dt;
+        if (d < 1 || !this.freeCell(s.x + (dx / d) * sp, s.y + (dy / d) * sp)) {
+          c.goal = null;
+          c.wait = 1 + Math.random() * 3;
+        } else {
+          s.x += (dx / d) * sp;
+          s.y += (dy / d) * sp;
+          s.setFlipX(dx < 0);
+          s.setFrame(Math.floor(c.t * 6) % 2);
+        }
+        continue;
+      }
+      c.wait -= dt;
+      s.setFrame(Math.sin(c.t * 7) > 0.6 ? 1 : 0); // elle picore
+      if (c.wait <= 0 && c.def.area) {
+        const [x0, y0, x1, y1] = c.def.area;
+        const g = { x: (x0 + Math.random() * (x1 - x0 + 1)) * TILE, y: (y0 + 0.6 + Math.random() * (y1 - y0)) * TILE };
+        if (this.freeCell(g.x, g.y)) c.goal = g;
+        else c.wait = 0.5;
+      }
+    }
+  }
+
+  /** Les PNJ regardent le sabreur quand il passe près d'eux, et jettent parfois un coup d'œil ailleurs. */
+  private npcLook(dt: number): void {
+    if (this.busy || UI.dialogOpen()) return;
+    this.lookClock -= dt;
+    const glance = this.lookClock <= 0;
+    if (glance) this.lookClock = 2.5 + Math.random() * 3;
+    for (const n of this.npcs) {
+      if (n.cameo || n.sprite.anims.isPlaying) continue;
+      const dx = this.player.x - n.sprite.x, dy = this.player.y - n.sprite.y;
+      if (Math.hypot(dx, dy) < 34) n.sprite.setFrame(idleFrame(faceToward(dx, dy)));
+      else if (glance && Math.random() < 0.35) {
+        const d = (['down', 'left', 'right'] as Dir[])[Math.floor(Math.random() * 3)];
+        n.sprite.setFrame(idleFrame(d));
+        this.time.delayedCall(1400, () => !n.sprite.anims.isPlaying && n.sprite.setFrame(idleFrame(n.home)));
+      }
+    }
+  }
+
+  /** Fumées, feuilles qui tombent, rides sur l'eau, halos des lanternes et des foyers, poussière de farine. */
+  private makeLife(): void {
+    // Halos chauds sur les lanternes, le foyer, le fourneau, les lanternes de pierre : ils respirent.
+    for (const s of this.built.sprites) {
+      const k = s.o.sprite!.key;
+      if (!['p-lantern', 'p-irori', 'p-kamado', 'p-stone-lamp'].includes(k)) continue;
+      const cx = s.x * TILE + s.o.w * 8, cy = s.y * TILE + (k === 'p-stone-lamp' ? 6 : k === 'p-lantern' ? 8 : s.o.h * 8);
+      const g = this.add.image(cx, cy, 'p-glow').setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.above + 0.5).setScale(k === 'p-lantern' ? 1.1 : 1.6).setAlpha(0.7);
+      this.tweens.add({ targets: g, alpha: 0.4, scale: g.scale * 0.92, duration: 900 + Math.random() * 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      if (k === 'p-irori') {
+        const e = this.add.image(s.x * TILE, s.y * TILE, 'p-embers').setOrigin(0).setDepth(DEPTH.actors + (s.y + 2) * TILE * 1e-5 + 1e-6);
+        this.tweens.add({ targets: e, alpha: 0.2, duration: 380, yoyo: true, repeat: -1 });
+      }
+    }
+    // Fumées des cheminées (dehors) et vapeur du fourneau, du foyer (dedans).
+    const smokes: [number, number][] =
+      this.def.id === 'kirino' ? [[27.4, 6.3], [8.6, 10.2], [36.2, 11.1]] : this.built.sprites.filter((s) => ['p-kamado', 'p-irori'].includes(s.o.sprite!.key)).map((s) => [s.x + 1, s.y + 0.6]);
+    for (const [x, y] of smokes)
+      this.time.addEvent({
+        delay: 900 + Math.random() * 500,
+        loop: true,
+        callback: () => {
+          const im = this.add.image(x * TILE + (Math.random() * 4 - 2), y * TILE, 'p-smoke').setDepth(DEPTH.above + 0.4).setAlpha(this.def.interior ? 0.35 : 0.55).setScale(0.5);
+          this.tweens.add({ targets: im, y: im.y - 22, x: im.x + 7, alpha: 0, scale: 1.4, duration: 3200, onComplete: () => im.destroy() });
+        },
+      });
+    // La meule tourne une fois le moulin réparé : un peu de farine vole.
+    const stone = this.def.id === 'mill' && world().quests.c1?.step === 'done' && this.built.sprites.find((s) => s.o.sprite!.key === 'p-millstone');
+    if (stone) {
+      const sp = this.children.list.find((o) => o instanceof Phaser.GameObjects.Sprite && o.texture.key === 'p-millstone') as Phaser.GameObjects.Sprite | undefined;
+      if (sp) this.tweens.add({ targets: sp, x: sp.x + 0.6, duration: 120, yoyo: true, repeat: -1 });
+      this.time.addEvent({
+        delay: 500,
+        loop: true,
+        callback: () => {
+          const im = this.add.image((stone.x + 0.4 + Math.random() * 1.2) * TILE, (stone.y + 1) * TILE, 'p-smoke').setDepth(DEPTH.above).setAlpha(0.5).setScale(0.25).setTint(0xfce2ca);
+          this.tweens.add({ targets: im, y: im.y - 10, alpha: 0, duration: 1400, onComplete: () => im.destroy() });
+        },
+      });
+    }
+    if (this.def.interior) return;
+    // Rides sur l'eau, là où il y a de l'eau, et à la roue du moulin.
+    const water: [number, number][] = [];
+    for (let y = 0; y < this.def.height; y++) for (let x = 0; x < this.def.width; x++) if (this.def.terrain[y][x] === 'w' && this.def.terrain[y - 1]?.[x] === 'w' && this.def.terrain[y + 1]?.[x] === 'w') water.push([x, y]);
+    for (let i = 0; i < Math.min(14, water.length); i++) {
+      const [x, y] = water[Math.floor(Math.random() * water.length)];
+      const r = this.add.sprite(x * TILE, y * TILE, 'tiles/ripples').setOrigin(0).setDepth(DEPTH.ground + 0.6).setAlpha(0.8);
+      if (this.anims.exists('ripple')) r.play({ key: 'ripple', startFrame: Math.floor(Math.random() * 4) });
+      this.tweens.add({ targets: r, x: r.x + 24, duration: 6000 + Math.random() * 4000, repeat: -1, onRepeat: () => r.setX(x * TILE) });
+    }
+    // Des feuilles d'automne tombent des arbres du village (pas des forêts du bord).
+    const trees = this.def.objects.filter((o) => o.o.w === 2 && o.o.h === 2 && o.o.tile(0, 0) && !o.id);
+    if (trees.length && this.textures.exists('tiles/leaf'))
+      this.time.addEvent({
+        delay: 700,
+        loop: true,
+        callback: () => {
+          const cam = this.cameras.main.worldView;
+          const vis = trees.filter((t) => cam.contains(t.x * TILE + 16, t.y * TILE + 16));
+          if (!vis.length || Math.random() < 0.4) return;
+          const t = vis[Math.floor(Math.random() * vis.length)];
+          const lf = this.add.sprite(t.x * TILE + 4 + Math.random() * 24, t.y * TILE + 6, 'tiles/leaf').setDepth(DEPTH.above + 0.3);
+          lf.setTint([0xd78b4a, 0xe46d3a, 0xc8966b, 0xadbc3a][Math.floor(Math.random() * 4)]);
+          if (this.anims.exists('leaf')) lf.play('leaf');
+          this.tweens.add({ targets: lf, y: lf.y + 30 + Math.random() * 14, x: lf.x + 10 + Math.random() * 12, alpha: { from: 1, to: 0 }, duration: 3800, ease: 'Sine.easeIn', onComplete: () => lf.destroy() });
+        },
+      });
+  }
+
+  // ---------- rumeurs entendues en passant ----------
+
+  /** Deux figurants discutent quand on passe près d'eux : des bulles, sans arrêter le jeu. */
+  private checkRumor(): void {
+    const r = this.def.rumors?.[0];
+    if (!r || this.rumorOn) return;
+    const d = Math.hypot(this.player.x / TILE - r.at[0], this.player.y / TILE - r.at[1]);
+    if (d > r.r + 1.5) this.rumorAway = true;
+    if (d > r.r || !this.rumorAway || this.time.now - this.rumorAt < 25000 || this.busy || UI.dialogOpen()) return;
+    this.playRumor(r);
+  }
+
+  private playRumor(r: NonNullable<MapDef['rumors']>[number]): void {
+    this.rumorOn = true;
+    this.rumorAway = false;
+    this.rumorAt = this.time.now;
+    const id = nextRumor(r.ids);
+    const lines = DIALOGUES[id] ?? [];
+    const w = world();
+    let t = 0;
+    lines.forEach((l, i) => {
+      this.time.delayedCall(t, () => {
+        if (UI.dialogOpen() || this.leaving) return;
+        this.clearBubbles();
+        const who = () => this.crits.find((c) => c.def.id === l.who)?.sprite ?? this.npc(l.who)?.sprite;
+        this.bubble(UI.plain(l.jp ?? ''), who);
+        Voice.play(`${id}:${i}`);
+        // La rumeur entre dans la バックログ, avec sa traduction (bouton 訳).
+        w.log.push(`${id}:${i}`);
+        if (w.log.length > 120) w.log.splice(0, w.log.length - 120);
+        saveWorld();
+      });
+      t += 2600 + (l.jp ?? '').length * 90;
+    });
+    this.time.delayedCall(t, () => {
+      this.clearBubbles();
+      this.rumorOn = false;
+    });
+  }
+
+  private bubble(text: string, who: () => Phaser.GameObjects.Sprite | undefined): void {
+    const el = document.createElement('div');
+    el.className = 'kbubble';
+    el.textContent = text;
+    document.body.appendChild(el);
+    this.bubbles.push({ el, who });
+    this.updateBubbles();
+  }
+
+  private updateBubbles(): void {
+    if (!this.bubbles.length) return;
+    const cam = this.cameras.main, r = this.game.canvas.getBoundingClientRect(), k = r.width / this.scale.width;
+    for (const b of this.bubbles) {
+      const s = b.who();
+      if (!s) continue;
+      b.el.style.left = `${r.left + (s.x - cam.worldView.x) * cam.zoom * k}px`;
+      b.el.style.top = `${r.top + (s.y - 20 - cam.worldView.y) * cam.zoom * k}px`;
+      b.el.hidden = UI.dialogOpen() || UI.panelOpen();
+    }
+  }
+
+  private clearBubbles(): void {
+    for (const b of this.bubbles) b.el.remove();
+    this.bubbles = [];
+  }
+
+  // ---------- portes et intérieurs ----------
+
+  /** Marcher sur une porte fait entrer dans la maison. */
+  private checkDoor(): void {
+    if (this.busy || this.leaving || UI.dialogOpen() || UI.panelOpen()) return;
+    const tx = Math.floor(this.player.x / TILE), ty = Math.floor((this.player.y - 2) / TILE);
+    const d = this.def.doors?.find((x) => x.x === tx && x.y === ty);
+    if (d) this.enterDoor(d);
+  }
+
+  private enterDoor(d: Door): void {
+    if (this.leaving) return;
+    this.leaving = true;
+    const save = world();
+    save.place = d.place;
+    save.gate = d.gate;
+    save.pos = undefined;
+    save.scene = 'village';
+    saveWorld();
+    UI.setPrompt(null);
+    if (this.cache.audio.exists('audio/move1')) this.sound.play('audio/move1', { volume: 0.25, rate: 0.8 });
+    // `fade(…, true)` : même si le fondu d'arrivée n'est pas fini, sinon on resterait coincé sur le seuil.
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.restart());
+    this.cameras.main.fade(320, 5, 5, 5, true);
+  }
+
+  /** Le marqueur d'un PNJ : son contrat d'abord, sinon une quête de chasse (une fois qu'on l'a rencontré). */
+  private markerOf(id: string): '！' | '？' | null {
+    return Quests.marker(id) ?? (world().seen['talk:' + id] ? Hunts.marker(id) : null);
+  }
+
+  /** Ce qu'une phrase dite déclenche : la déduction d'un contrat, ou une commande au salon de thé. */
+  private onAct(a: string): void {
+    if (a.startsWith('guess:')) return Quests.act(a);
+    if (a.startsWith('heal')) this.pending.heal = true;
+    if (a.startsWith('rest')) this.pending.rest = true;
+  }
+
+  /** Après la commande : le thé et les dango rendent les forces, se reposer ouvre la セーブ. */
+  private afterOrder(): void {
+    const p = this.pending;
+    this.pending = {};
+    if (!p.heal && !p.rest) return;
+    const f = Field.field();
+    const was = f.hp;
+    Field.heal();
+    this.refreshField();
+    if (this.cache.audio.exists('audio/accept')) this.sound.play('audio/accept', { volume: 0.35, rate: 1.3 });
+    if (p.rest) {
+      UI.toast(`一休み <small>PV ${Field.maxHp(f.lvl)}/${Field.maxHp(f.lvl)} · sauvegarde ouverte</small>`);
+      UI.openSave();
+    } else UI.toast(`ごちそうさま <small>PV ${was} → ${Field.maxHp(f.lvl)}</small>`);
+  }
+
+  /** Un PNJ qui vit ailleurs vient le temps d'une cinématique (おみつ devant son salon de thé). */
+  private cameo(id: string, x: number, y: number, face: Dir): void {
+    if (this.npc(id)) return this.place(id, x, y, face);
+    const def = Object.values(MAPS).flatMap((m) => m.npcs).find((n) => n.id === id);
+    if (!def) return;
+    ensureAnims(this, def.sprite);
+    const sprite = this.add.sprite(x * TILE, y * TILE, def.sprite, idleFrame(face)).setOrigin(0.5, 1);
+    this.npcs.push({ def: { ...def, x, y, face }, sprite, home: face, cameo: true });
+  }
+
+  private dropCameo(id: string): void {
+    const n = this.npc(id);
+    if (!n?.cameo) return;
+    n.sprite.destroy();
+    this.npcs = this.npcs.filter((x) => x !== n);
   }
 
   // ---------- sorties, son, sauvegarde ----------
@@ -983,8 +1412,8 @@ export class VillageScene extends Phaser.Scene {
     save.scene = exit?.place ? 'village' : 'map';
     saveWorld();
     UI.setPrompt(null);
-    this.cameras.main.fadeOut(450, 5, 5, 5);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => (exit?.place ? this.scene.restart() : this.scene.start('map')));
+    this.cameras.main.fade(450, 5, 5, 5, true);
   }
 
   private updateAmbience(): void {
@@ -1003,6 +1432,7 @@ export class VillageScene extends Phaser.Scene {
   }
 
   private cleanup(): void {
+    this.clearBubbles();
     if (hooks.beforeSave) hooks.beforeSave = undefined;
     hooks.act = undefined;
     hooks.bell = undefined;
