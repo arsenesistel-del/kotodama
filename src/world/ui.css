@@ -276,6 +276,33 @@
 #wui .field .bell { margin-left: auto; font-family: 'Yuji Syuku', serif; font-size: 16px; color: rgba(236, 230, 218, 0.55); background: none; border: 1px solid rgba(236, 230, 218, 0.25); padding: 1px 6px; cursor: pointer; }
 #wui .field .bell small { font-family: 'DotGothic16', monospace; font-size: 10px; margin-left: 4px; }
 #wui .field .bell.on { color: #f1ae41; border-color: #f1ae41; }
+#wui .field .dango { margin-left: auto; font-family: 'Yuji Syuku', serif; font-size: 15px; color: #ece6da; background: none; border: 1px solid rgba(236, 230, 218, 0.25); padding: 1px 6px; cursor: pointer; }
+#wui .field .dango small { font-family: 'DotGothic16', monospace; font-size: 10px; margin-left: 4px; color: rgba(236, 230, 218, 0.6); }
+#wui .field .dango + .bell { margin-left: 0; }
+
+/* Session 12 : la fiche de l'artisan pendant une commande. */
+#wui .order {
+  position: absolute;
+  right: 18px;
+  top: 150px;
+  width: 300px;
+  padding: 10px 12px;
+  background: rgba(8, 8, 8, 0.82);
+  border-right: 2px solid #d4412b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+#wui .order > small { display: block; font-family: 'Yuji Syuku', serif; font-size: 15px; color: #d4412b; margin-bottom: 6px; }
+#wui .order .rc { padding: 5px 0 6px; border-top: 1px solid rgba(236, 230, 218, 0.1); opacity: 0.55; }
+#wui .order .rc.ok { opacity: 1; }
+#wui .order .rc.done { opacity: 0.4; }
+#wui .order b { display: flex; align-items: baseline; gap: 8px; font-family: 'DotGothic16', monospace; font-weight: normal; font-size: 15px; color: #ece6da; }
+#wui .order b rt { font-size: 8px; opacity: 0.6; }
+#wui .order b i { font-style: normal; font-size: 11px; color: #f1ae41; }
+#wui .order span { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0; font-family: 'DotGothic16', monospace; }
+#wui .order u { text-decoration: none; color: rgba(236, 230, 218, 0.85); }
+#wui .order u.short { color: #d4412b; }
+#wui .order em { display: block; font-style: normal; color: rgba(236, 230, 218, 0.62); }
 #wui .field .xp { height: 3px; margin-top: 6px; background: rgba(236, 230, 218, 0.12); }
 #wui .field .xp i { display: block; height: 100%; background: #f1ae41; transform-origin: left; }
 #wui .field em { display: block; margin-top: 5px; font-style: normal; font-family: 'DotGothic16', monospace; font-size: 12px; color: rgba(236, 230, 218, 0.62); }

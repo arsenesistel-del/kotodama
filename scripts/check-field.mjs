@@ -7,7 +7,7 @@ const store = new Map();
 globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
 
 const { module: X } = await runnerImport('/scripts/field-entry.ts');
-const { F, S, M, H, D } = X;
+const { F, S, M, H, D, C } = X;
 const E = await import('../src/combat/engine.js');
 
 let fails = 0;
@@ -58,7 +58,8 @@ F.resetField();
 eq([F.maxHp(1), F.maxHp(5), F.maxHp(10)], [5, 7, 9], 'PV par niveau');
 let total = 0;
 for (let l = 1; l < 10; l++) total += F.xpToNext(l);
-if (total < 400 || total > 900) fail(`expérience jusqu'au niveau 10 : ${total}`);
+// Session 12 : la courbe est réglée sur la partie entière (scripts/check-balance.mjs) ; ici, un ordre de grandeur.
+if (total < 4000 || total > 10000) fail(`expérience jusqu'au niveau 10 : ${total}`);
 const ups = F.gainXp(F.xpToNext(1) + F.xpToNext(2));
 eq(ups, [2, 3], 'deux niveaux gagnés');
 eq(F.field().hp, F.maxHp(3), 'un niveau gagné rend les PV');
@@ -78,10 +79,74 @@ if (!(hard > easy && top > easy && rare > easy)) fail(`butin : facile ${easy}, d
 F.resetField();
 const b = { sp: 'uwasadori', lvl: 5, rare: false };
 F.meet(b);
+const want = F.beastXp(b, 1, true);
 const o = F.calm(b, { crits: 1, clean: true, hard: 1, hp: 4 });
 eq(F.field().beasts.uwasadori.calmed, 1, 'bête apaisée au 図鑑');
 if (sum(F.field().bag) !== sum(o.loot) || !sum(o.loot)) fail('le butin n’est pas dans le sac');
-if (o.xp !== F.beastXp(b, 1, true)) fail('expérience');
+if (o.xp !== want) fail('expérience');
+
+// Session 12 : une bête trop faible rapporte moins ; une série sans coup reçu (連鎖) rapporte plus, jusqu'à +50 %.
+{
+  const weak = { sp: 'tsubuyaki', lvl: 1, rare: false };
+  if (!(F.beastXp(weak, 0, true, 8, 0) < F.beastXp(weak, 0, true, 3, 0))) fail('une bête trop faible doit rapporter moins');
+  const mid = { sp: 'tsubuyaki', lvl: 5, rare: false };
+  const x0 = F.beastXp(mid, 0, true, 5, 0), x3 = F.beastXp(mid, 0, true, 5, 3), x9 = F.beastXp(mid, 0, true, 5, 9);
+  if (!(x3 > x0 && x9 === Math.round(x0 * 1.5))) fail(`連鎖 : ${x0}, ${x3}, ${x9}`);
+  if (F.beastXp(mid, 0, false, 5, 4) !== F.beastXp(mid, 0, false, 5, 0)) fail('連鎖 : un coup reçu, pas de bonus');
+  F.resetField();
+  F.calm(mid, { crits: 0, clean: true, hard: 0, hp: 5 });
+  F.calm(mid, { crits: 0, clean: true, hard: 0, hp: 5 });
+  eq(F.field().chain, 2, 'deux combats sans coup reçu');
+  F.calm(mid, { crits: 0, clean: false, hard: 0, hp: 4 });
+  eq(F.field().chain, 0, 'un coup reçu rompt la chaîne');
+}
+
+// Session 12 : おみつ et 萬作. On ne paie que ce qu'on a, les pièces se posent une fois et font leur effet,
+// les dango soignent, le 守り札 sert une fois, le 呼び札 rend les 朱 plus fréquents pour dix rencontres.
+{
+  const ws = S.world();
+  ws.quests = {};
+  F.resetField();
+  eq(C.offered('mansaku').length, 0, '萬作 ne fabrique rien avant le moulin');
+  eq(C.offered('omitsu').map((r) => r.id), ['mitarashi'], 'avant le col, seulement les みたらし');
+  eq(C.make('mitarashi'), false, 'pas de riz, pas de dango');
+  F.field().bag.kome = 5;
+  eq(C.make('mitarashi'), true, 'みたらし pour deux mesures de riz');
+  eq([F.field().bag.kome, F.field().items.mitarashi], [3, 1], 'riz pris, dango dans le sac');
+  F.field().hp = 1;
+  eq(C.eat(), 3, 'une みたらし rend trois PV');
+  eq(C.eat(), 0, 'plus de dango');
+  ws.quests.c1 = { step: 'done', heard: [] };
+  ws.quests.c2 = { step: 'done', heard: [] };
+  ws.quests.c3 = { step: 'done', heard: [] };
+  eq(C.offered('mansaku').length, 6, 'après le pont, les six commandes de 萬作');
+  const lv = F.field().lvl, hp0 = F.hpMax(), t0 = F.timeNow();
+  Object.assign(F.field().bag, { ito: 19, washi: 19, mokuhen: 19, sumi: 19, teppen: 19 });
+  for (const id of ['tsukamaki', 'tsuba', 'tsuka', 'saya']) eq(C.make(id), true, `pièce ${id}`);
+  eq(C.make('tsuba'), false, 'une pièce ne se pose qu’une fois');
+  eq([F.hpMax() - hp0, +(F.timeNow() - t0).toFixed(2), F.critBonus(), F.bossDmg()], [1, 0.5, 500, 1.2], 'effets des pièces');
+  eq(F.maxHp(lv) + 1, F.hpMax(), 'la garde ajoute un PV au niveau');
+  eq(C.make('mamori'), true, '守り札');
+  eq(C.useMamori(), true, 'le 守り札 pare un coup');
+  eq(C.useMamori(), false, 'il ne sert qu’une fois');
+  eq(C.make('yobi'), true, '呼び札');
+  eq(C.useYobi(), true, 'le 呼び札 agit');
+  eq(F.rareChance(), 1 / 4, 'une variante 朱 sur quatre');
+  for (let i = 0; i < 10; i++) F.meet({ sp: 'tsubuyaki', lvl: 2, rare: false });
+  eq(F.rareChance(), 1 / 16, 'après dix rencontres, une sur seize');
+  // Les phrases du comptoir : quatre au plus, et toujours de quoi s'en aller chez 萬作.
+  for (const m of ['omitsu', 'mansaku']) {
+    const l = C.pick(m);
+    if (l.choices.length > 4) fail(`${m} : ${l.choices.length} phrases proposées`);
+    for (const c of l.choices) if (!D.DIALOGUES[c.goto]) fail(`${m} : réponse ${c.goto} manquante`);
+  }
+  if (!C.pick('mansaku').choices.some((c) => c.act === 'leave')) fail('萬作 : pas de phrase pour s’en aller');
+  // はじめから : le 渡り repart du niveau 1, le 図鑑 reste.
+  F.field().lvl = 7;
+  F.meet({ sp: 'mayoiga', lvl: 7, rare: false });
+  F.newRun();
+  eq([F.field().lvl, F.field().parts.tsuba ?? false, !!F.field().beasts.mayoiga], [1, false, true], 'nouvelle partie');
+}
 
 // La clochette : il faut l'avoir.
 F.resetField();
@@ -134,4 +199,4 @@ if (fails) {
   console.error(`${fails} problème(s) dans les rencontres.`);
   process.exit(1);
 }
-console.log(`Rencontres vérifiées : niveaux 1 à 10, ${items} phrases de bêtes acceptées, expérience, butin, clochette, quêtes de chasse.`);
+console.log(`Rencontres vérifiées : niveaux 1 à 10, ${items} phrases de bêtes acceptées, expérience, butin, clochette, quêtes de chasse, commandes chez おみつ et 萬作.`);

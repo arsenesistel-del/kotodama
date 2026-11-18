@@ -15,11 +15,13 @@ root.innerHTML = `
   <div class="hint" hidden></div>
   <div class="quests" hidden></div>
   <div class="field" hidden></div>
+  <div class="order" hidden></div>
   <div class="card" hidden><small class="ch"></small><b></b><span class="rd"></span><p></p><em></em></div>`;
 document.body.appendChild(root);
 // La clochette de l'encart du 渡り : la scène écoute cet événement (touche X aussi).
 root.addEventListener('click', (e) => {
   if ((e.target as HTMLElement).closest('.field .bell')) window.dispatchEvent(new Event('kotodama:bell'));
+  if ((e.target as HTMLElement).closest('.field .dango')) window.dispatchEvent(new Event('kotodama:dango'));
 });
 
 const $ = <T extends HTMLElement>(s: string) => (root.querySelector(s) ?? card.querySelector(s)) as T;
@@ -111,14 +113,34 @@ export function questHud(list: QuestBox[] | QuestBox | null): void {
 }
 
 /** L'encart du 渡り dans les herbes hautes (session 10) : niveau, PV, expérience, clochette, zone. */
-export function fieldHud(f: { lvl: number; hp: number; max: number; xp: number; bell: boolean | null; zone: string } | null): void {
+export function fieldHud(
+  f: { lvl: number; hp: number; max: number; xp: number; bell: boolean | null; zone: string; dango?: number; lure?: number; chain?: number } | null,
+): void {
   const box = $('.field');
   box.hidden = !f;
   if (!f) return;
   const pips = Array.from({ length: f.max }, (_, i) => `<i class="${i < f.hp ? 'on' : ''}"></i>`).join('');
+  // Session 12 : les dango à manger (touche C), le 呼び札 qui agit encore, la série de combats sans coup reçu (連鎖).
+  const extra = [f.lure ? `呼び札 ${f.lure}` : '', f.chain && f.chain > 1 ? `連鎖 ${f.chain}` : ''].filter(Boolean).join(' · ');
   box.innerHTML = `<div class="row"><b>渡り</b><span class="lv">Lv ${f.lvl}</span><span class="hp">${pips}</span>${
-    f.bell === null ? '' : `<button class="bell${f.bell ? ' on' : ''}" title="Clochette (X)">鈴<small>${f.bell ? 'ちりん' : 'X'}</small></button>`
-  }</div><div class="xp"><i style="transform:scaleX(${Math.max(0, Math.min(1, f.xp))})"></i></div>${f.zone ? `<em>${f.zone}</em>` : ''}`;
+    f.dango ? `<button class="dango" title="Manger un dango (C)">団子<small>×${f.dango} C</small></button>` : ''
+  }${f.bell === null ? '' : `<button class="bell${f.bell ? ' on' : ''}" title="Clochette (X)">鈴<small>${f.bell ? 'ちりん' : 'X'}</small></button>`}</div><div class="xp"><i style="transform:scaleX(${Math.max(0, Math.min(1, f.xp))})"></i></div>${
+    f.zone || extra ? `<em>${[f.zone, extra].filter(Boolean).join(' · ')}</em>` : ''
+  }`;
+}
+
+/** Session 12 : la fiche de l'artisan pendant la commande (ce qu'il sait faire, ce que ça coûte, ce qu'on a). */
+export function orderSheet(maker: string | null, rows: import('./craft').SheetRow[] = []): void {
+  const box = $('.order');
+  box.hidden = !maker;
+  if (!maker) return;
+  const who = maker === 'omitsu' ? 'おみつの茶屋' : '萬作の仕事場';
+  box.innerHTML = `<small>${who}</small>${rows
+    .map(
+      (r) => `<div class="rc${r.ok ? ' ok' : ''}${r.have === '済' ? ' done' : ''}"><b><ruby>${r.name}<rt>${r.reading}</rt></ruby>${r.have ? `<i>${r.have}</i>` : ''}</b>
+      <span>${r.cost.map((c) => `<u class="${c.have >= c.need ? '' : 'short'}">${c.mat} ${c.have}/${c.need}</u>`).join('')}</span><em>${r.fr}</em></div>`,
+    )
+    .join('')}`;
 }
 
 // ---------- carton de chapitre, plein écran ----------

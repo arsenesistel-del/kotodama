@@ -442,3 +442,13 @@ for (const [k, e] of Object.entries(LEX_VILLAGE)) {
   }
   else LEX[k] = e;
 }
+
+// Session 12 : les commandes chez おみつ et 萬作.
+import { LEX_CRAFT } from './lexicon-craft';
+for (const [k, e] of Object.entries(LEX_CRAFT)) {
+  const cur = LEX[k];
+  if (cur) {
+    if (e.forms?.length) cur.forms = [...new Set([...(cur.forms ?? []), ...e.forms])];
+  }
+  else LEX[k] = e;
+}

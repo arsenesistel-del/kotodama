@@ -88,7 +88,8 @@ export interface MapDef {
   spawns: Record<string, Spawn>;
   // `place` : la sortie mène directement à un autre lieu en pixel (le col descend au village), sans la carte du monde.
   exits: { side: 'north' | 'south' | 'west' | 'east'; from: number; to: number; gate: string; place?: string }[];
-  // Cases bloquées tant que le fil de l'histoire n'a pas posé `flag` (la brume du col, avant que ワケ soit libéré).
+  // Cases bloquées tant que le fil de l'histoire n'a pas posé `flag` (la brume du col, avant que ワケ soit libéré),
+  // ou tant que le contrat de ce nom n'est pas rapporté (« c2 » : la brume du fond de 薄野原).
   barriers?: { cells: [number, number][]; flag: string; say: string }[];
   // Zones de rencontre : le niveau des 言蟲 selon l'endroit (un champ facile près du village, plus dur plus loin).
   zones?: import('./field').Zone[];
