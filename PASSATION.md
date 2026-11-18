@@ -25,7 +25,7 @@ Document de cadrage complet : https://claude.ai/artifact/5RwHQVeMepsgU1KX3P8kjD
 
 ### Session 12 : l'économie et l'équilibrage
 
-Branche `session-12-economie`, PR #10 (voir l'onglet Pull requests du dépôt). La PR #9 (session 11) était déjà fusionnée au début de la session. À fusionner dans `main` pour la mise en ligne.
+Branche `session-12-economie`, PR #10 : https://github.com/arsenesistel-del/kotodama/pull/10. La PR #9 (session 11) était déjà fusionnée au début de la session. À fusionner dans `main` pour la mise en ligne.
 
 **À tester en priorité dans ta partie à la voix** (repars avec メニュー → はじめから : le 渡り repart maintenant du niveau 1, sac vide ; tes mots, ta progression et le 図鑑 restent) :
 1. **Les commandes à voix haute** : au salon de thé 「みたらし団子を、包んでください。」 et 「三色団子を、包んでください。」 ; chez 萬作 「刀を、握りやすくしてほしいんです。」, 「刀を、軽くしてほしいんです。」, 「鍔を付けてほしいんです。」, 「鞘を作ってほしいんです。」, 「お守りを作ってください。」, 「赤い札が、ほしいんです。」. Note celles que Chrome refuse et ce qu'il entend (affiché sous la phrase) : 鍔, 鞘, 札 et 三色 sont les plus à risque (j'ai déjà ramené 唾 → 鍔, 莢 → 鞘, 赤い蓋 → 赤い札, 三食 → 三色, 握り易 → 握りやす).
